@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import sys
 from typing import Optional, Sequence
 
 from core import db, exporter, fetchers, normalizer, wazuh_export
@@ -139,4 +140,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except BrokenPipeError:
+        # Commands such as `./bin/fast-cli --show | head -15` intentionally
+        # close stdout early after reading enough lines. Treat that as normal
+        # pipeline completion instead of printing a Python traceback.
+        try:
+            sys.stdout.close()
+        except BrokenPipeError:
+            pass
+        raise SystemExit(0)
