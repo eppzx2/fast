@@ -4,6 +4,8 @@
 set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
 MANAGER_CONTAINER="single-node-wazuh.manager-1"
 CDB_FILE="$PROJECT_ROOT/sample_output/ioc-ips"
 HEALTH_TIMEOUT=60
@@ -56,7 +58,7 @@ fi
 
 # cli.py now returns non-zero when every feed fails or a usable Wazuh export
 # cannot be produced, so a bad refresh can never overwrite the live CDB silently.
-docker run --rm "${collector_env[@]}" -v "$PROJECT_ROOT:/app" osint-ioc-collector \
+docker run --rm --user "$HOST_UID:$HOST_GID" "${collector_env[@]}" -v "$PROJECT_ROOT:/app" osint-ioc-collector \
     --fetch --export wazuh
 
 [ -s "$CDB_FILE" ] || fail "Fresh CDB export is empty"
