@@ -25,3 +25,9 @@ def test_fast_cli_repairs_legacy_readonly_database():
     assert "repair_cli_database_permissions" in text
     assert 'chown "$(id -u):$(id -g)" "$db_path"' in text
     assert 'Database directory is not writable' in text
+
+
+def test_cli_handles_head_broken_pipe_without_traceback():
+    text = Path("cli.py").read_text(encoding="utf-8")
+    assert "except BrokenPipeError" in text
+    assert "raise SystemExit(0)" in text
