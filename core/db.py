@@ -170,6 +170,13 @@ def insert_batch(iocs: List[Dict[str, Any]]) -> int:
                     if _upsert_ioc_with_cursor(cursor, ioc):
                         success += 1
                 except (sqlite3.Error, TypeError, ValueError, KeyError) as exc:
+                    if isinstance(exc, sqlite3.OperationalError) and "readonly" in str(exc).lower():
+                        logger.error(
+                            "Batch insert aborted: database is read-only (%s). "
+                            "Fix file ownership/write permissions before retrying.",
+                            DB_PATH,
+                        )
+                        return success
                     logger.error("IOC skipped in batch insert: %s", exc)
         logger.info("Batch insert: %d/%d IOCs processed", success, len(iocs))
         return success
