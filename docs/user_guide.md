@@ -1,221 +1,267 @@
-# FAST IOC Collector — User Guide
+# FAST IOC Collector User Guide
 
-This guide covers the IOC collector independently of the full Wazuh deployment.
-For Wazuh deployment, agents, TLS recovery, and attack simulations, use
-`docs/DEPLOYMENT_GUIDE.md` and `docs/SIMULATION_GUIDE.md`.
+This guide covers the IOC collector and local web/API behavior on the current `main` branch.
 
-## Setup
+## Preferred setup: `fast-cli`
+
+Clone the repository:
 
 ```bash
-git clone <repo-url> fast-test
+git clone https://github.com/eppzx2/fast-test.git fast-test
 cd fast-test
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
 ```
 
-For the supported current URLhaus/MalwareBazaar Community APIs:
+Then use:
+
+```bash
+./bin/fast-cli
+```
+
+On first use the wrapper can:
+
+- install missing `python3-venv` and `python3-pip` on apt-based hosts;
+- create `.venv`;
+- install `requirements.txt`;
+- repair legacy root-owned collector database/export files;
+- execute `cli.py` with the virtualenv Python.
+
+You do not need to manually activate the virtualenv.
+
+## Feed credentials
 
 ```bash
 cp .env.example .env
-# edit .env and set ABUSECH_AUTH_KEY=...
 ```
 
-`.env` is git-ignored and loaded automatically by the collector.
+Set:
 
-## CLI
+```env
+ABUSECH_AUTH_KEY=<your-key>
+```
 
-The CLI output and help text are in English.
+The file is git-ignored.
 
-Initialize SQLite:
+## CLI commands
+
+Help:
 
 ```bash
-python cli.py --init-db
+./bin/fast-cli --help
 ```
 
-Expected output:
-
-```text
-✓ Database is ready.
-```
-
-Fetch all feeds:
+Initialize database:
 
 ```bash
-python cli.py --fetch
+./bin/fast-cli --init-db
 ```
 
-Typical output flow:
-
-```text
-📡 Fetching data from feeds...
-  • <feed>: <count> raw records
-
-🔄 Normalizing...
-  • <count> IOCs normalized in total
-
-💾 Writing to database (automatic deduplication + scoring)...
-  • <count> IOCs processed
-
-✓ Completed. Unique IOCs in database: <count>
-```
-
-Each provider is isolated: one provider can fail while the others continue. If
-**every** provider returns zero data, or no records can be normalized/stored,
-the command exits non-zero so automation does not treat an empty refresh as
-success.
-
-Inspect data:
+Fetch and normalize all feeds:
 
 ```bash
-python cli.py --show
-python cli.py --count
+./bin/fast-cli --fetch
 ```
+
+Count stored IOCs:
+
+```bash
+./bin/fast-cli --count
+```
+
+Show IOC rows:
+
+```bash
+./bin/fast-cli --show
+```
+
+For a short preview:
+
+```bash
+./bin/fast-cli --show | head -15
+```
+
+The CLI handles the expected early pipe close cleanly without a Python traceback.
 
 Exports:
 
 ```bash
-python cli.py --export csv
-python cli.py --export json
-python cli.py --export both
-python cli.py --export wazuh
+./bin/fast-cli --export csv
+./bin/fast-cli --export json
+./bin/fast-cli --export both
+./bin/fast-cli --export wazuh
 ```
 
-The Wazuh export writes `sample_output/ioc-ips` and succeeds only when there is
-at least one usable IPv4/IPv4-CIDR IOC. Invalid IP values and IPv6 values are
-skipped from this IPv4 CDB export.
+Outputs:
 
-Example CDB output:
+```text
+sample_output/ioc_export.csv
+sample_output/ioc_export.json
+sample_output/ioc-ips
+```
+
+## Fetch behavior
+
+FAST isolates provider failures. One broken provider does not stop successful feeds.
+
+A fetch returns failure when:
+
+- every provider returns zero usable records;
+- normalization produces no usable IOCs;
+- normalized IOCs cannot be written to SQLite.
+
+This prevents automation from treating a completely empty refresh as success.
+
+## Database semantics
+
+SQLite uniqueness:
+
+```text
+(ioc_value, ioc_type)
+```
+
+Repeated observations merge:
+
+- source feeds;
+- tags;
+- earliest `first_seen`;
+- latest `last_seen`;
+- confidence score based on distinct feed count.
+
+Scoring:
+
+```text
+1 feed  = 25
+2 feeds = 50
+3 feeds = 75
+4 feeds = 100
+```
+
+Timestamps are normalized to UTC ISO-8601.
+
+## Wazuh CDB export
+
+`--export wazuh` creates `sample_output/ioc-ips`.
+
+Only validated IPv4 and IPv4-CIDR values are exported. URL/hash IOCs remain in SQLite and the UI.
+
+Example:
 
 ```text
 203.0.113.10:1
 198.51.100.0/24:1
 ```
 
-## Web dashboard
+## Permission handling
 
-Local development:
+Current FAST prevents new root-owned collector files by running Docker collection/refresh jobs with the host UID/GID.
 
-```bash
-python app.py
-```
-
-Default local-development URL:
+The wrapper also repairs legacy writable-state problems for:
 
 ```text
-http://localhost:5000
+ioc_database.db
+sample_output/ioc_export.csv
+sample_output/ioc_export.json
+sample_output/ioc-ips
 ```
 
-Flask debug mode is disabled unless `FAST_WEB_DEBUG=1` is explicitly set.
-
-API routes:
-
-- `GET /api/health` — liveness + IOC count
-- `GET /api/iocs` — paginated/filtered IOC list
-- `POST /api/fetch` — refresh feeds
-- `GET /api/export?format=csv|json` — export file
-- `GET /api/stats` — type/feed/confidence counts
-
-`POST /api/fetch` returns HTTP 503 when all providers return zero data instead
-of pretending the refresh succeeded.
-
-When FAST runs the web dashboard through Docker, its host port binds to
-`127.0.0.1:5000` by default. Set `FAST_WEB_BIND` in the local `.env` only when
-you intentionally want another interface, for example a Tailscale IP.
-
-## Data behavior
-
-SQLite uniqueness is `(ioc_value, ioc_type)`. Repeated observations merge:
-
-- provider names;
-- tags;
-- earliest `first_seen`;
-- latest `last_seen`;
-- confidence score based on distinct provider count.
-
-Confidence scoring:
-
-```text
-1 distinct feed  = 25
-2 distinct feeds = 50
-3 distinct feeds = 75
-4 distinct feeds = 100
-```
-
-Times are normalized to UTC ISO-8601.
-
-## Safe refresh into Wazuh
-
-For a deployed FAST environment use:
+If a manual repair is ever needed:
 
 ```bash
-./refresh_iocs.sh
+sudo chown "$USER:$(id -gn)" ioc_database.db
+sudo chown -R "$USER:$(id -gn)" sample_output
 ```
 
-The refresh path validates the new CDB, runs Wazuh analysis validation,
-restarts the Manager, checks Manager recovery, and verifies the Filebeat →
-Indexer output path. It exits non-zero on failure rather than silently replacing
-a working CDB with an invalid/empty one.
+## Local web dashboard
 
-## FAST operations CLI
+For source-level development:
 
-For the complete deployed stack use:
+```bash
+./bin/fast-cli --init-db
+.venv/bin/python app.py
+```
+
+Default:
+
+```text
+http://127.0.0.1:5000
+```
+
+For the complete deployed platform, use `./bin/fast up` instead.
+
+Core IOC routes:
+
+- `GET /api/health`
+- `GET /api/iocs`
+- `POST /api/fetch`
+- `GET /api/export?format=csv|json`
+- `GET /api/stats`
+
+Security-operations routes are documented in [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
+
+## Full stack operations
 
 ```bash
 ./bin/fast up
 ./bin/fast status
-./bin/fast down
 ./bin/fast restart
+./bin/fast down
 ```
 
-Force a clean TLS certificate rebuild without deleting named Wazuh data volumes:
-
-```bash
-./bin/fast up --reset-certs
-```
-
-Offline demo mode with bundled fixture IOCs:
+Offline demo:
 
 ```bash
 ./bin/fast demo
 ```
 
+## Refresh a deployed CDB
+
+```bash
+./refresh_iocs.sh
+```
+
+This path validates the CDB, Wazuh analysis configuration, Manager recovery and Filebeat -> Indexer output before declaring success.
+
 ## Tests
 
-Offline deterministic suite:
+Deterministic offline suite:
 
 ```bash
 python -m pytest -q tests --ignore=tests/acceptance
 ```
 
-Provider live checks are opt-in:
+Optional live provider checks:
 
 ```bash
 FAST_LIVE_FEEDS=1 python -m pytest tests/test_fetchers.py -v
 ```
 
-GitHub Actions runs Python compilation, Bash syntax checks, and the deterministic
-offline suite on every push/PR. The live acceptance suite is excluded because it
-requires a deployed Manager and target host.
-
 ## Troubleshooting
 
-If one feed is empty, inspect collector logs and the provider's service status.
-For current abuse.ch Community endpoints, confirm `ABUSECH_AUTH_KEY` exists in
-your local `.env`. Do not commit that file.
+### Read-only database
 
-If every feed fails, `python cli.py --fetch` exits with status 1. Fix the
-provider/network/auth problem before running Wazuh refresh again.
-
-If the SQLite DB is disposable and you intentionally want a clean collector DB:
+Current `fast-cli` attempts to repair a legacy root-owned database automatically. If the problem remains, inspect:
 
 ```bash
-rm -f ioc_database.db
-python cli.py --init-db
+ls -l ioc_database.db
+ls -ld sample_output
+ls -l sample_output
 ```
 
-Do not remove Wazuh Docker volumes just to reset the IOC collector.
+Then repair ownership if appropriate.
 
-For provider-field details, see `docs/feed_map.md`.
+### CSV permission denied while JSON succeeds
 
-**Last updated:** 2026-09-08
+This usually means the existing CSV file has different ownership from the directory/JSON file. Run:
+
+```bash
+./bin/fast-cli --export both
+```
+
+The current wrapper checks and repairs the export directory before launching the CLI.
+
+### All feeds fail
+
+Verify network access and `ABUSECH_AUTH_KEY`, then retry `./bin/fast-cli --fetch`.
+
+For provider-field details, see [feed_map.md](feed_map.md).
+
+**Last reviewed:** 2026-09-29
