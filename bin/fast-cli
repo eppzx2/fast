@@ -68,6 +68,24 @@ create_venv() {
     "$PYTHON_BIN" -m venv "$VENV_DIR" || fail "Could not create virtual environment"
 }
 
+repair_cli_database_permissions() {
+    local db_path="${FAST_DB_PATH:-$ROOT_DIR/ioc_database.db}"
+    local db_dir
+    db_dir="$(dirname "$db_path")"
+
+    # SQLite needs write access to both the database file and its directory
+    # because it may create journal/WAL sidecar files. Older FAST Docker runs
+    # created ioc_database.db as root on the bind-mounted host directory.
+    if [ -e "$db_path" ] && [ ! -w "$db_path" ]; then
+        info "Repairing database ownership for CLI access: $db_path"
+        "${sudo_cmd[@]}" chown "$(id -u):$(id -g)" "$db_path"             || fail "Could not make $db_path writable"
+    fi
+
+    if [ ! -w "$db_dir" ]; then
+        fail "Database directory is not writable: $db_dir"
+    fi
+}
+
 install_requirements_if_needed() {
     if [ ! -f "$INSTALL_MARKER" ] || [ "$REQUIREMENTS" -nt "$INSTALL_MARKER" ]; then
         info "Installing FAST CLI Python dependencies"
@@ -80,6 +98,7 @@ install_requirements_if_needed() {
 ensure_system_packages
 create_venv
 install_requirements_if_needed
+repair_cli_database_permissions
 
 if [ "$#" -eq 0 ]; then
     set -- --help
