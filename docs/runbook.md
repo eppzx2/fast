@@ -1,33 +1,49 @@
-# FAST — Detection Runbook
+# FAST Detection Runbook
 
-Technical reference for the three Linux attack simulations used by FAST. The
-rules live in `docker/rules/local_rules.xml`; the scripts live under
-`tests/acceptance/sim/`.
+This runbook documents the current Linux validation detections, investigation context, response workflow, and troubleshooting.
 
-## Current rule chain
+Rules: `docker/rules/local_rules.xml`
 
-| FAST rule | Scenario | Level | Base/parent | Trigger |
-|---|---|---:|---|---|
-| `100199` | SSH failure staging | 1 / no_log | Wazuh `5710` or `5760` | each invalid-user or failed-password/authentication event, not logged |
-| `100200` | SSH brute force | 10 | FAST `100199` | 5+ failures from one source IP in 60s; 60s suppression after firing |
-| `100210` | Port-scan probe | 3 | Wazuh `4100` | one `FAST_PORTSCAN` kernel/firewall event |
-| `100211` | Port scan correlation | 7 | FAST `100210` | 8+ probes from one source IP in 60s |
-| `100220` | LOLBin signal | 6 | Wazuh `80792` | process named `httpd` executing from a non-standard path |
-| `100221` | LOLBin confirmed | 12 | FAST `100220` | same audit event also contains wget-style command-line evidence |
+Simulators: `tests/acceptance/sim/`
 
-## SSH brute-force correlation
+## Rule chain summary
 
-The simulator defaults to a deliberately non-existent username, which Wazuh can
-classify as rule `5710`; ordinary failed-password/authentication errors can be
-classified as `5760`. FAST does not create an incident for every one of those
-events. It stages them silently and correlates them by source IP:
+| Rule | Scenario | Level | Parent / trigger |
+|---|---|---:|---|
+| `100199` | SSH staging | 1 / no_log | Wazuh `5710` or `5760` |
+| `100200` | SSH brute force | 10 | 5 staged failures, same source IP, 60s; `ignore=60` |
+| `100210` | port-scan probe | 3 | Wazuh `4100` + `FAST_PORTSCAN` |
+| `100211` | port scan | 7 | 8+ `100210` events from same source in 60s |
+| `100220` | LOLBin signal | 6 | Wazuh `80792`, `audit.command=httpd`, non-standard executable path |
+| `100221` | confirmed LOLBin | 12 | `100220` + wget-style raw arguments |
+
+Primary incident/validation rules are `100200`, `100211`, and `100221`.
+
+---
+
+## 1. SSH brute force — rule 100200
+
+### Detection logic
+
+Wazuh base authentication failures:
+
+```text
+5710  invalid/non-existent SSH user
+5760  failed password/authentication error
+```
+
+FAST stages them:
 
 ```xml
 <rule id="100199" level="1">
   <if_sid>5710,5760</if_sid>
   <options>no_log</options>
 </rule>
+```
 
+Final correlation:
+
+```xml
 <rule id="100200" level="10" frequency="5" timeframe="60" ignore="60">
   <if_matched_sid>100199</if_matched_sid>
   <same_srcip />
@@ -35,136 +51,207 @@ events. It stages them silently and correlates them by source IP:
 </rule>
 ```
 
-This design reduces alert noise: the fifth SSH authentication failure from the
-same source IP inside 60 seconds raises one `100200` brute-force alert. Wazuh
-then suppresses repeat `100200` alerts for the next 60 seconds.
+### Engineering rationale
 
-Expected chain:
+One alert per failed password creates noise. The staging/correlation model instead generates a single high-value brute-force incident once the threshold is crossed and suppresses repeated final alerts for 60 seconds.
+
+`100199` must be level 1 rather than level 0 because Wazuh correlation requires matched events to be retained internally. `no_log` prevents those staging events from creating FAST alert noise.
+
+### Triage
+
+Check:
+
+- source IP;
+- target agent/host;
+- timestamp;
+- whether the source is expected administration infrastructure;
+- whether failures are followed by successful authentication;
+- whether the same source touches multiple hosts.
+
+### Initial response
+
+For an unexpected external source:
+
+1. confirm the event is not a test;
+2. inspect surrounding SSH authentication events;
+3. identify whether any login succeeded;
+4. restrict/block the source where appropriate;
+5. review exposed SSH paths and credentials;
+6. preserve relevant logs;
+7. update FAST incident status/assignee/notes.
+
+---
+
+## 2. Port scan — rule 100211
+
+### Detection logic
+
+Target preparation adds a logging-only `mangle/PREROUTING` rule for TCP SYN packets to `56001..56012` with marker `FAST_PORTSCAN`.
+
+Wazuh rule `4100` parses the kernel/firewall event.
+
+FAST staging:
 
 ```text
-5710 or 5760 -> 100199 (silent) -> 100200 (one correlated alert)
+4100 + FAST_PORTSCAN -> 100210
 ```
 
-## Port scan
-
-`setup_prereqs.sh` installs a narrow **logging-only** iptables rule in
-`mangle/PREROUTING` for reserved test ports `56001..56012`. It writes the
-prefix `FAST_PORTSCAN` before normal Tailscale/UFW/filter decisions. It does
-**not** add ACCEPT/DROP policy and does not enable UFW.
-
-This makes the test deterministic without changing the target's firewall
-policy. Wazuh rule `4100` handles the kernel/firewall event, FAST `100210`
-marks each matching probe, and `100211` performs the same-source correlation.
-
-Current correlation:
+Correlation:
 
 ```text
-100210 -> 100211
-frequency=8
- time frame=60 seconds
+8+ 100210 events
 same source IP
+within 60 seconds
+-> 100211
 ```
 
-Expected final port-scan alert:
+### Triage
+
+Check:
+
+- source IP;
+- scanned host;
+- destination ports;
+- time span and probe volume;
+- whether the source is an approved vulnerability scanner;
+- whether scanning is followed by authentication or exploitation attempts.
+
+### Response
+
+1. identify authorized scanning infrastructure;
+2. compare with maintenance/security-testing windows;
+3. inspect adjacent Wazuh/network alerts;
+4. block or isolate unexpected hostile scanning where appropriate;
+5. escalate if scanning is followed by exploitation or credential attacks.
+
+---
+
+## 3. LOLBin / masquerading — rule 100221
+
+### Detection logic
+
+Prerequisites:
+
+- auditd active;
+- `execve` rule key `audit-wazuh-c`;
+- Wazuh Agent collects `/var/log/audit/audit.log`.
+
+Base Wazuh grouping:
 
 ```text
-Rule ID: 100211
-Level: 7
-Description: FAST possible port scan: 8+ probes from the same source IP (...) within 60 seconds.
+80792
 ```
 
-## LOLBin
+Signal rule `100220` requires:
 
-The target must run `auditd`, watch `execve` with key `audit-wazuh-c`, and have
-the Wazuh agent collect `/var/log/audit/audit.log` with audit format.
-`setup_prereqs.sh` configures and verifies these prerequisites automatically and
-restarts the agent only when its collection configuration changes.
+- `audit.command == httpd`;
+- executable path not equal to standard Apache paths.
 
-Wazuh rule `80792` is the audit command rule. FAST `100220` checks decoded
-`audit.command`/`audit.exe`; `100221` is a same-event child that confirms
-wget-style command-line evidence. The simulator copies the local `wget` binary
-to `/tmp/httpd` and runs it against `127.0.0.1`, so the simulation has no
-external-network dependency.
+Confirmation rule `100221` additionally requires wget-style raw arguments such as:
 
-Expected chain:
+- `http://` or `https://`;
+- `--no-check-certificate`;
+- `-O` / `--output-document`.
 
-```text
-80792 -> 100220 -> 100221
-```
+### Triage
+
+Relevant FAST incident fields:
+
+- Host / Agent;
+- Agent IP;
+- Source IP (host/local event);
+- Process;
+- Executable;
+- Rule ID / Level;
+- Raw Event;
+- ATT&CK mapping.
+
+Because this is a local process event, absence of a remote network `srcip` is normal.
+
+### Response
+
+1. validate the executable path;
+2. hash and inspect the suspicious binary;
+3. inspect parent/child process context in available telemetry;
+4. review command-line arguments;
+5. check persistence and adjacent process activity;
+6. isolate the host if malicious execution is suspected;
+7. update the FAST incident with findings.
+
+---
+
+## MITRE mapping
+
+| Rule | Technique |
+|---|---|
+| `100200` | T1110 Brute Force |
+| `100211` | T1046 Network Service Scanning |
+| `100221` | T1036.003 Masquerading: Rename System Utilities |
+| `100221` | T1105 Ingress Tool Transfer |
+
+See [MITRE_MAPPING.md](MITRE_MAPPING.md) for UI semantics.
 
 ## One-time target preparation
 
-Run on the **Linux target that has the Wazuh agent**:
+Run on the Linux target:
 
 ```bash
 cd ~/fast-test
-git pull
+git pull --ff-only origin main
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
 
-Expected checks include:
+Expected configuration:
 
 ```text
-Wazuh agent already collects journald (or it is added)
-FAST pre-filter port-scan logging rule present
-auditd is watching execve syscalls (key=audit-wazuh-c)
-Wazuh agent is configured to collect /var/log/audit/audit.log
+journald collected by Wazuh Agent
+FAST_PORTSCAN pre-filter logging rule present
+auditd execve key audit-wazuh-c active
+/var/log/audit/audit.log collected by Wazuh Agent
 ```
 
-The setup also creates a one-time backup at
-`/var/ossec/etc/ossec.conf.fast-backup` before changing the agent collection
-configuration.
+The script creates a one-time backup:
+
+```text
+/var/ossec/etc/ossec.conf.fast-backup
+```
 
 ## Manual simulations
 
-SSH repeated-authentication and port scan are launched from a runner that can
-reach the target:
+Runner:
 
 ```bash
 ./tests/acceptance/sim/simulate_brute_force.sh <TARGET_IP> nonexistent_bruteforce_test_user 8
 ./tests/acceptance/sim/simulate_port_scan.sh <TARGET_IP>
 ```
 
-LOLBin runs **on the target itself**:
+Target:
 
 ```bash
 ./tests/acceptance/sim/simulate_lolbin.sh
 ```
 
-Expected FAST detections are `100200`, `100211`, and `100221`.
+## Manager diagnostics
 
-## Automated acceptance tests
-
-Run from the Manager/repository checkout with access to the Docker socket:
+Recent relevant alerts:
 
 ```bash
-export TARGET_HOST=<TARGET_IP>
-export TARGET_SSH_USER=<target-ssh-user>
-python -m pytest tests/acceptance -v
+docker exec single-node-wazuh.manager-1   sh -c "grep -E '\"id\":\"(5710|5760|100200|100210|100211|80792|100220|100221)\"'   /var/ossec/logs/alerts/alerts.json | tail -50"
 ```
 
-The tests snapshot the current Manager `alerts.json` position, run the
-simulation, and wait only for **new** alerts. The acceptance suite is not part
-of the normal offline GitHub Actions job because it requires a live Manager and
-a real target endpoint.
-
-## Quick diagnostics
-
-On the Manager:
-
-```bash
-docker exec single-node-wazuh.manager-1 \
-  sh -c "grep -E '\"id\":\"(5760|100200|100210|100211|80792|100220|100221)\"' \
-  /var/ossec/logs/alerts/alerts.json | tail -50"
-```
-
-Validate custom rules/configuration:
+Rule/config validation:
 
 ```bash
 docker exec single-node-wazuh.manager-1 /var/ossec/bin/wazuh-analysisd -t
 ```
 
-On the target:
+Agent list:
+
+```bash
+docker exec single-node-wazuh.manager-1 /var/ossec/bin/agent_control -l
+```
+
+Target diagnostics:
 
 ```bash
 sudo journalctl -k --since '2 minutes ago' | grep FAST_PORTSCAN
@@ -174,20 +261,22 @@ sudo grep -F '<location>/var/log/audit/audit.log</location>' /var/ossec/etc/osse
 
 ## Troubleshooting interpretation
 
-- `5760` present but `100200` missing: Manager does not have the current FAST
-  SSH child rule loaded, or rule validation/restart did not apply it.
-- `100210` present but `100211` missing: fewer than 8 probes were correlated
-  from one `srcip` inside 60 seconds.
-- `80792` present but `100220` missing: inspect `audit.command` and `audit.exe`.
-- `100220` present but `100221` missing: inspect the same audit event for the
-  URL/`-O` wget-style evidence.
-- Manager alerts present but Threat Hunting empty: check
-  `./bin/fast status`; Filebeat → Indexer must be healthy.
+- `5710`/`5760` present but no `100200`: verify at least 5 same-source events in 60 seconds and current correlation rule deployment.
+- `100200` repeats too frequently: verify deployed rule includes `ignore="60"`.
+- `100210` present but no `100211`: fewer than 8 same-source probes were correlated inside 60 seconds.
+- `80792` present but no `100220`: inspect `audit.command` and `audit.exe`.
+- `100220` present but no `100221`: inspect the same event's raw arguments.
+- Manager alert exists but UI/Threat Hunting is empty: verify Filebeat -> Indexer with `./bin/fast status`.
 
-## Scope
+## Tuning guidance
 
-These simulation rules are Linux-oriented. A connected Windows agent is useful
-for general Wazuh validation but does not replace the Linux target for sshd,
-kernel/iptables, or auditd simulations.
+Tune thresholds only with observed environment data.
 
-**Last updated:** 2026-09-08
+- Do not reduce SSH threshold merely to make demos faster; the simulator already sends 8 attempts.
+- Keep staging rules low/no-log and final rules actionable.
+- Keep suppression windows explicit when repeated final alerts would create analyst noise.
+- Maintain deterministic test ports separately from production detection logic.
+- Validate every rule change with `wazuh-analysisd -t` before Manager restart.
+- Update `core/detections.py`, tests and documentation whenever primary rule IDs or semantics change.
+
+**Last reviewed:** 2026-09-29
