@@ -51,6 +51,8 @@ IOC_IMAGE="osint-ioc-collector"
 IOC_WEB_CONTAINER="fast-ioc-collector-web"
 FAST_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.fast.yml"
 DB_FILE="$PROJECT_ROOT/ioc_database.db"
+export FAST_HOST_UID="${FAST_HOST_UID:-$(id -u)}"
+export FAST_HOST_GID="${FAST_HOST_GID:-$(id -g)}"
 
 # Note: no global ERR trap here. status/up/restart intentionally
 # return non-zero exit codes (2/3/4) to reflect system state - a
