@@ -16,6 +16,9 @@ services:
     image: osint-ioc-collector
     container_name: fast-ioc-collector-web
     restart: unless-stopped
+    # Match the host checkout owner so bind-mounted SQLite/state files are not
+    # created as root and remain writable by ./bin/fast-cli on the host.
+    user: "${FAST_HOST_UID:-1000}:${FAST_HOST_GID:-1000}"
     entrypoint: ["python3", "app.py"]
     ports:
       - "${FAST_WEB_BIND:-127.0.0.1}:5000:5000"
