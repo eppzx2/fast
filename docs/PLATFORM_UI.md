@@ -1,54 +1,156 @@
 # FAST Platform UI
 
-The platform UI keeps the existing Overview and IOC Database behavior, removes the duplicate Threat Feeds navigation entry, and adds security-operations views backed by real Wazuh telemetry.
+The FAST web application is a security-operations interface layered on top of the IOC collector and live Wazuh telemetry.
 
-## Detection Validation
+## Data integrity principle
 
-FAST does **not** generate fake alerts and does not execute attack scripts from the browser. Use the existing scripts under `tests/acceptance/sim/` against the connected lab target. FAST checks `wazuh-alerts-*` in the Wazuh Indexer for the expected rule:
+The UI does not generate fake alerts. Security views are backed by:
 
-- `100200` — SSH failed authentication
-- `100211` — correlated port scan
-- `100221` — LOLBin / masquerading
+- FAST's SQLite IOC database;
+- Wazuh Server API;
+- Wazuh Indexer `wazuh-alerts-*`;
+- FAST's separate analyst-state/audit SQLite database.
 
-Validation states are evidence-based: `PASS`, `STALE`, or `WAITING`.
+## Main views
 
-The flow remains:
+### Overview
 
-`Attack -> Wazuh Agent -> Wazuh SIEM -> Alert -> FAST`
+Summarizes the current FAST environment and IOC/security state.
 
-## Incidents and correlation
+### IOC Database
 
-The Incidents view turns real FAST/Wazuh alerts into triageable cases. FAST stores only analyst-owned metadata (status, assignee and notes) in a separate SQLite operations database. The original Wazuh alert is never modified.
+Displays normalized IOC records collected from FAST threat feeds.
 
-The correlation layer groups repeated or multi-stage real FAST alerts by asset/source/time window. It is read-only and does not synthesize Wazuh events.
+### Incidents
 
-## Detection Engineering
+Shows real Wazuh alerts for the canonical FAST validation rules.
 
-The Detections view combines the static FAST rule catalogue with live Wazuh data: 24-hour alert counts, last trigger, latest agent and connected-agent coverage.
+Each row can expand inline to display alert details. The expanded content remains in the same table flow rather than using a detached side panel.
 
-## Architecture and Asset Catalog
+Analyst-editable fields:
 
-Architecture represents FAST as the platform, Wazuh as the active SIEM core, and TALON as an active FAST module. SOAR, PAM, EPM and DLP are explicitly labelled **Coming Soon / Future Integration**.
+- status;
+- assignee;
+- notes.
 
-Asset Catalog calls the Wazuh server API and displays real agent ID, hostname, OS, IP, status, Wazuh version and last keepalive. FAST adds a transparent risk score using only agent health and real FAST detections from the last 24 hours. It is not presented as vulnerability risk until additional data sources exist.
+Saving provides visible success/error feedback.
 
-## Authentication / RBAC
+### Detections
 
-Authentication is opt-in to preserve existing local deployments. When enabled, FAST supports Viewer, Analyst and Admin roles, session authentication and CSRF checks for state-changing API requests. Wazuh credentials remain server-side.
+Combines the static catalogue in `core/detections.py` with live Wazuh activity.
 
-See `docs/SECURITY_OPERATIONS.md` for configuration and role details.
+Current catalogue:
 
-## Audit trail
+```text
+100200  SSH Brute Force
+100211  Port Scan
+100221  LOLBin / Masquerading
+```
 
-FAST records product-side actions such as login/logout, intelligence sync/export and incident workflow changes. The audit view is Admin-only when authentication is enabled.
+Supporting staging rules are intentionally not shown as primary catalogue detections.
+
+### MITRE ATT&CK
+
+Shows Enterprise ATT&CK tactics with current FAST mappings and live observation state.
+
+The UI distinguishes:
+
+- mapped coverage;
+- observed activity;
+- unmapped tactics.
+
+It does not claim full ATT&CK coverage.
+
+### Detection Validation
+
+Validation is evidence-based:
+
+- PASS;
+- STALE;
+- WAITING.
+
+FAST does not launch attacks from the browser. Use the scripts under `tests/acceptance/sim/` and allow Wazuh to generate the expected real alert.
+
+### Architecture / Asset Catalog
+
+The asset catalogue queries the Wazuh Server API and can show:
+
+- agent ID;
+- hostname;
+- OS;
+- IP;
+- status;
+- Wazuh version;
+- last keepalive;
+- transparent FAST risk score.
+
+The risk score is based on agent health and recent FAST detections only.
+
+### System Health / Audit
+
+System Health exposes current platform state and product-side audit information subject to role permissions.
+
+## Incident field normalization
+
+FAST normalizes common alert fields from the Indexer:
+
+- `data.srcip` / `data.src_ip`;
+- `data.dstip` / `data.dst_ip`;
+- `data.srcport` / `data.dstport`;
+- `audit.command` / `data.command`;
+- `audit.exe` / `data.exe`;
+- `full_log`.
+
+For local process events without a network source address, the agent IP is used as host context and is explicitly marked in the UI as a local-event source.
+
+## Authentication behavior
+
+Authentication is optional.
+
+When `FAST_AUTH_ENABLED=1`:
+
+- unauthenticated UI requests redirect to login;
+- unauthenticated API requests return 401;
+- role checks apply;
+- CSRF is required for protected state-changing routes.
+
+When disabled, existing local/demo use remains available.
+
+## Runtime routing
+
+The backend provides non-secret UI metadata through:
+
+```text
+GET /api/ui-config
+```
+
+The Open Wazuh target is derived from:
+
+1. explicit `FAST_WAZUH_DASHBOARD_URL`;
+2. the current `*.ts.net` hostname on port 8443;
+3. local fallback on port 5601.
 
 ## Connectivity
 
-`docker/docker-compose.fast.yml` joins the Wazuh single-node Docker network (`single-node_default` by default), so the UI backend can use internal service DNS:
+The Docker web container joins:
 
-- Wazuh server API: `https://wazuh.manager:55000`
-- Wazuh Indexer: `https://wazuh.indexer:9200`
+- its default FAST compose network;
+- the existing Wazuh single-node network.
 
-The defaults match the official Wazuh Docker demo credentials. If those credentials are changed, set the matching `FAST_WAZUH_*` variables in the project's git-ignored `.env` file. Credentials are used only server-side and are never returned by the UI configuration APIs.
+Default internal services:
 
-Self-signed TLS verification is disabled by default for the internal demo network. For a hardened deployment, set `FAST_WAZUH_VERIFY_TLS=1` or provide `FAST_WAZUH_CA_BUNDLE`.
+```text
+https://wazuh.manager:55000
+https://wazuh.indexer:9200
+```
+
+The browser never receives those credentials.
+
+## Related documentation
+
+- [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md)
+- [UI_DEPLOYMENT.md](UI_DEPLOYMENT.md)
+- [MITRE_MAPPING.md](MITRE_MAPPING.md)
+- [SIMULATION_GUIDE.md](SIMULATION_GUIDE.md)
+
+**Last reviewed:** 2026-09-29
