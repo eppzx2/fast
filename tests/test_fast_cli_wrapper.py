@@ -20,11 +20,16 @@ def test_fast_cli_runs_cli_with_virtualenv_python_and_forwards_args():
     assert 'set -- --help' in text
 
 
-def test_fast_cli_repairs_legacy_readonly_database():
+def test_fast_cli_repairs_legacy_readonly_database_and_exports():
     text = SCRIPT.read_text(encoding="utf-8")
-    assert "repair_cli_database_permissions" in text
-    assert 'chown "$(id -u):$(id -g)" "$db_path"' in text
+    assert "repair_cli_state_permissions" in text
+    assert 'chown "$uid:$gid" "$db_path"' in text
+    assert 'chown -R "$uid:$gid" "$output_dir"' in text
+    assert 'ioc_export.csv' in text
+    assert 'ioc_export.json' in text
+    assert 'ioc-ips' in text
     assert 'Database directory is not writable' in text
+    assert 'Export directory is not writable' in text
 
 
 def test_cli_handles_head_broken_pipe_without_traceback():
