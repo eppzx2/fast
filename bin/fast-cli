@@ -68,22 +68,49 @@ create_venv() {
     "$PYTHON_BIN" -m venv "$VENV_DIR" || fail "Could not create virtual environment"
 }
 
-repair_cli_database_permissions() {
-    local db_path="${FAST_DB_PATH:-$ROOT_DIR/ioc_database.db}"
-    local db_dir
+repair_cli_state_permissions() {
+    local uid gid db_path db_dir output_dir repair_output=false
+    uid="$(id -u)"
+    gid="$(id -g)"
+    db_path="${FAST_DB_PATH:-$ROOT_DIR/ioc_database.db}"
     db_dir="$(dirname "$db_path")"
+    output_dir="$ROOT_DIR/sample_output"
 
     # SQLite needs write access to both the database file and its directory
     # because it may create journal/WAL sidecar files. Older FAST Docker runs
     # created ioc_database.db as root on the bind-mounted host directory.
     if [ -e "$db_path" ] && [ ! -w "$db_path" ]; then
         info "Repairing database ownership for CLI access: $db_path"
-        "${sudo_cmd[@]}" chown "$(id -u):$(id -g)" "$db_path"             || fail "Could not make $db_path writable"
+        "${sudo_cmd[@]}" chown "$uid:$gid" "$db_path" \
+            || fail "Could not make $db_path writable"
     fi
 
     if [ ! -w "$db_dir" ]; then
         fail "Database directory is not writable: $db_dir"
     fi
+
+    # Older Docker-based collection/export runs could also leave individual
+    # files under sample_output/ owned by root. That creates confusing partial
+    # exports (for example JSON succeeds while CSV gets EACCES).
+    if [ -d "$output_dir" ]; then
+        [ -w "$output_dir" ] || repair_output=true
+        for path in             "$output_dir/ioc_export.csv"             "$output_dir/ioc_export.json"             "$output_dir/ioc-ips"; do
+            if [ -e "$path" ] && [ ! -w "$path" ]; then
+                repair_output=true
+                break
+            fi
+        done
+
+        if [ "$repair_output" = true ]; then
+            info "Repairing CLI export ownership: $output_dir"
+            "${sudo_cmd[@]}" chown -R "$uid:$gid" "$output_dir" \
+                || fail "Could not make $output_dir writable"
+        fi
+    else
+        mkdir -p "$output_dir" || fail "Could not create $output_dir"
+    fi
+
+    [ -w "$output_dir" ] || fail "Export directory is not writable: $output_dir"
 }
 
 install_requirements_if_needed() {
@@ -98,7 +125,7 @@ install_requirements_if_needed() {
 ensure_system_packages
 create_venv
 install_requirements_if_needed
-repair_cli_database_permissions
+repair_cli_state_permissions
 
 if [ "$#" -eq 0 ]; then
     set -- --help
