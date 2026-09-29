@@ -18,3 +18,10 @@ def test_fast_cli_runs_cli_with_virtualenv_python_and_forwards_args():
     text = SCRIPT.read_text(encoding="utf-8")
     assert 'exec "$VENV_DIR/bin/python" "$ROOT_DIR/cli.py" "$@"' in text
     assert 'set -- --help' in text
+
+
+def test_fast_cli_repairs_legacy_readonly_database():
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert "repair_cli_database_permissions" in text
+    assert 'chown "$(id -u):$(id -g)" "$db_path"' in text
+    assert 'Database directory is not writable' in text
