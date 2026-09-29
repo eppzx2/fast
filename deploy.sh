@@ -67,6 +67,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
 WAZUH_DIR="$PROJECT_ROOT/wazuh-docker"
 WAZUH_VERSION="v4.9.0"
 WAZUH_SINGLE_NODE_DIR="$WAZUH_DIR/single-node"
@@ -389,11 +391,22 @@ cd "$PROJECT_ROOT"
 echo "🔨 Building the IOC Collector image..."
 docker build -t osint-ioc-collector -f docker/ioc-collector.Dockerfile .
 
+# Older releases ran the collector as root against the bind-mounted checkout,
+# leaving SQLite/output files root-owned on the host. Repair those once, then
+# run all collector jobs with the host user's UID/GID so the problem cannot
+# recur and ./bin/fast-cli can use the same database.
+docker run --rm -v "$PROJECT_ROOT:/app" --entrypoint /bin/sh osint-ioc-collector -c "
+for path in /app/ioc_database.db /app/fast_operations.db /app/sample_output; do
+    [ -e \"\$path\" ] && chown -R $HOST_UID:$HOST_GID \"\$path\" || true
+done
+"
+mkdir -p "$PROJECT_ROOT/sample_output"
+
 echo ""
 if [ "$DEMO_MODE" = true ]; then
     echo "📦 DEMO mode: seeding IOCs from sample_output/ioc_export.json (no network calls)..."
-    docker run --rm -v "$PROJECT_ROOT:/app" osint-ioc-collector --init-db
-    docker run --rm -v "$PROJECT_ROOT:/app" --entrypoint python3 osint-ioc-collector -c "
+    docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" osint-ioc-collector --init-db
+    docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" --entrypoint python3 osint-ioc-collector -c "
 import json, sys
 sys.path.insert(0, '/app')
 from core import db
@@ -406,10 +419,10 @@ for row in fixture:
 count = db.insert_batch(fixture)
 print(f'Seeded {count} IOCs from fixture')
 "
-    docker run --rm -v "$PROJECT_ROOT:/app" osint-ioc-collector --export wazuh
+    docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" osint-ioc-collector --export wazuh
 else
     echo "📡 Collecting from feeds, normalizing, exporting to Wazuh CDB..."
-    docker run --rm -v "$PROJECT_ROOT:/app" osint-ioc-collector \
+    docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" osint-ioc-collector \
         --init-db --fetch --export wazuh
 fi
 
