@@ -1,90 +1,166 @@
-# F.A.S.T. — OSINT Threat Aggregation + Fast-Deploy SIEM
+# F.A.S.T. — Fully Automated SIEM & Threat Intelligence Platform
 
-**F.A.S.T.** = Fully Automated SIEM & Threat-Intel Tool.
-
-FAST combines OSINT threat feeds with a pinned Wazuh 4.9.0 single-node SIEM.
-It fetches and normalizes IOCs, deduplicates/scorers them in SQLite, produces a
-validated Wazuh CDB list, loads custom detections, and verifies the
-Manager → Filebeat → Indexer alert path.
+FAST combines OSINT threat intelligence, a pinned Wazuh 4.9.0 single-node SIEM, custom detections, incident workflow, MITRE ATT&CK mapping, and validation tooling in one lab-oriented platform.
 
 ## Quick start
 
 ```bash
-git clone <this-repo-url> fast-test
+git clone https://github.com/eppzx2/fast-test.git fast-test
 cd fast-test
 ./bin/fast up
 ./bin/fast status
 ```
 
-Useful commands:
+Main lifecycle commands:
 
 ```bash
-./bin/fast up                 # deploy/start FAST
-./bin/fast up --reset-certs   # force a clean Wazuh TLS bundle rebuild
-./bin/fast down               # stop while preserving named data volumes
+./bin/fast up                 # deploy/start FAST with live IOC feeds
+./bin/fast demo               # deploy with bundled IOC fixture
+./bin/fast status             # verify containers, Manager and Filebeat -> Indexer
 ./bin/fast restart
-./bin/fast status
-./refresh_iocs.sh             # fetch fresh IOCs + verify Manager/Indexer pipeline
+./bin/fast down               # stop while preserving named Wazuh data volumes
+./bin/fast up --reset-certs   # rebuild the Wazuh TLS bundle without deleting data
 ```
 
-Full deployment steps: `docs/DEPLOYMENT_GUIDE.md`.
+## Architecture
+
+```text
+OSINT feeds
+  |
+  v
+FAST IOC Collector -> SQLite -> validated IPv4/CIDR CDB
+                                   |
+                                   v
+Endpoint -> Wazuh Agent -> Wazuh Manager -> Filebeat -> Wazuh Indexer
+                                |                         |
+                                |                         +-> Threat Hunting
+                                +-> FAST custom rules
+                                                           |
+                                                           v
+                                                     FAST Web UI
+                                                     - Overview
+                                                     - IOC Database
+                                                     - Incidents
+                                                     - Detections
+                                                     - MITRE ATT&CK
+                                                     - Validation
+                                                     - Architecture
+                                                     - System Health
+```
+
+Wazuh remains the source of truth for agents and alerts. FAST stores IOC data plus analyst-owned workflow metadata in separate SQLite files.
 
 ## Threat feeds
 
-FAST integrates:
-
-| Feed | Data | Access |
+| Feed | FAST data | Access |
 |---|---|---|
-| Feodo Tracker | botnet C2 IPv4s | public feed |
-| URLhaus | malicious URLs | current Community export uses abuse.ch Auth-Key; legacy compatibility fallback retained |
-| MalwareBazaar | malware hashes/metadata | current Community API requires free abuse.ch Auth-Key |
-| Spamhaus DROP | malicious IPv4 netblocks | current JSON DROP dataset |
+| Feodo Tracker | botnet C2 IPv4s | public |
+| URLhaus | malicious URLs | abuse.ch Auth-Key preferred; compatibility fallback retained |
+| MalwareBazaar | malware hashes/metadata | free abuse.ch Auth-Key recommended |
+| Spamhaus DROP | malicious IPv4/CIDR netblocks | public |
 
-For the supported abuse.ch APIs, create a free Auth-Key and keep it local:
+Configure local feed credentials:
 
 ```bash
 cp .env.example .env
-# edit .env and set ABUSECH_AUTH_KEY=...
+# set ABUSECH_AUTH_KEY=...
 ```
 
-`.env` is ignored by git. `python-dotenv` loads it for local CLI and the
-collector container because the project is mounted at `/app`. If a provider is
-unavailable, other feeds continue; however the CLI now exits non-zero when
-**all** feeds fail so deploy/refresh cannot silently claim success with no new
-data.
+The file is git-ignored.
 
-## Detection pipeline
+## Collector CLI
+
+Use the bootstrap wrapper. It creates `.venv`, installs missing Python packages on apt-based systems, installs `requirements.txt`, repairs legacy root-owned FAST state files when needed, and then runs `cli.py` with the virtualenv Python.
+
+```bash
+./bin/fast-cli --help
+./bin/fast-cli --init-db
+./bin/fast-cli --fetch
+./bin/fast-cli --count
+./bin/fast-cli --show
+./bin/fast-cli --show | head -15
+./bin/fast-cli --export csv
+./bin/fast-cli --export json
+./bin/fast-cli --export both
+./bin/fast-cli --export wazuh
+```
+
+No manual `source .venv/bin/activate` step is required.
+
+The Wazuh export contains only validated IPv4/IPv4-CIDR keys. URL/hash IOCs remain available in FAST but are not written to `sample_output/ioc-ips`.
+
+## Detection rules
+
+### IOC/CDB rules
+
+| Rule | Purpose | Level |
+|---|---|---:|
+| `100100` | silent IOC CDB lookup base | 0 |
+| `100101` | known-bad source IP in a network event | 12 |
+| `100102` | authentication attempt from a known-bad source IP | 12 |
+
+### Validation detections
+
+| Rule | Detection | Trigger | Level |
+|---|---|---|---:|
+| `100199` | SSH staging | Wazuh `5710`/`5760`, `no_log` | 1 |
+| `100200` | SSH brute force | 5 failures, same source IP, 60s; repeat suppression 60s | 10 |
+| `100210` | port-scan probe | one `FAST_PORTSCAN` kernel event | 3 |
+| `100211` | port scan | 8+ probes from one source in 60s | 7 |
+| `100220` | LOLBin signal | process named `httpd` from non-standard path | 6 |
+| `100221` | confirmed LOLBin | 100220 plus wget-style arguments | 12 |
+
+Expected validation alerts are `100200`, `100211`, and `100221`.
+
+## Web UI and security operations
+
+Default local FAST UI:
 
 ```text
-Threat feeds
-   ↓
-fetch → normalize UTC → dedup/merge feeds+tags → confidence score
-   ↓
-validated IPv4/CIDR CDB list
-   ↓
-Wazuh Manager rules/analysisd
-   ↓
-alerts.json → Filebeat (TLS verified) → Wazuh Indexer → Threat Hunting
+http://127.0.0.1:5000
 ```
 
-FAST health checks include the Filebeat → Indexer output test. A running
-Manager alone is not enough for `FAST [ HEALTHY ]`.
+The security-operations layer uses real Wazuh data for:
 
-### Custom simulation detections
+- agent/asset inventory;
+- detection health and last-triggered state;
+- incident cases with inline expandable details;
+- analyst state: status, assignee and notes;
+- source/destination/process context;
+- MITRE ATT&CK mapping;
+- detection validation;
+- product-side audit events.
 
-| Rule | Detection | Level |
-|---|---|---:|
-| `100199` | silent SSH failure staging rule (`5710`/`5760`) | 1 / no_log |\n| `100200` | 5+ SSH failures from the same source IP in 60s; one alert, 60s suppression | 10 |
-| `100210` | individual deterministic FAST port-scan probe | 3 |
-| `100211` | 8+ probes from one source in 60s | 7 |
-| `100220` | `httpd`-named process from unexpected path | 6 |
-| `100221` | confirmed wget-masquerading LOLBin | 12 |
+For local process events such as the LOLBin simulation, Wazuh may not provide a network `srcip`. FAST then displays the Wazuh agent IP as `Source IP (host/local event)` instead of inventing an attacker network address.
 
-Brute force and port scan have been validated end-to-end on the project Linux
-target. See `docs/SIMULATION_GUIDE.md` and `docs/runbook.md` for the current
-commands and troubleshooting stages.
+Authentication is optional and disabled by default for local/demo compatibility. Enable it before exposing a real deployment.
 
-## Target agents
+## Tailscale sharing
+
+After FAST is healthy:
+
+```bash
+./bin/fast-share on
+./bin/fast-share status
+./bin/fast-share off
+```
+
+The helper publishes:
+
+- FAST UI through Tailscale Funnel on HTTPS 443;
+- Wazuh Dashboard through tailnet-only Tailscale Serve on HTTPS 8443.
+
+Do not expose the public FAST UI with authentication disabled outside a controlled demo.
+
+## Refresh IOCs
+
+```bash
+./refresh_iocs.sh
+```
+
+The refresh fails safely if collection/export/Manager validation or Filebeat -> Indexer verification fails.
+
+## Agents
 
 Linux:
 
@@ -92,91 +168,22 @@ Linux:
 sudo ./linux/install-wazuh-agent.sh --ip <MANAGER_IP>
 ```
 
-Windows (elevated PowerShell):
+Windows, elevated PowerShell:
 
 ```powershell
 .\windows\install-wazuh-agent.ps1 -ManagerIP "<MANAGER_IP>"
 ```
 
-The installers now fail if the service does not start, perform connection
-checks, and handle reinstall/upgrade edge cases more safely.
-
-## Web dashboard
-
-The Flask UI is available on port 5000. Docker binds it to **localhost only by
-default**:
-
-```text
-http://127.0.0.1:5000
-```
-
-To intentionally expose it on another interface, set `FAST_WEB_BIND` in `.env`
-(for example a Tailscale address) before `./bin/fast up`. Flask debug mode is
-off by default.
-
-API routes:
-
-- `GET /api/health`
-- `GET /api/iocs`
-- `POST /api/fetch`
-- `GET /api/export?format=csv|json`
-- `GET /api/stats`
-
-## Collector CLI
-
-Recommended: use the bootstrap runner. On first use it installs missing
-`python3-venv`/`python3-pip` on apt-based systems, creates `.venv`, installs
-`requirements.txt`, and then runs `cli.py` with the virtualenv Python.
-There is no separate activation step.
-
-```bash
-bash bin/fast-cli --help
-bash bin/fast-cli --init-db
-bash bin/fast-cli --fetch
-bash bin/fast-cli --show
-bash bin/fast-cli --export csv
-bash bin/fast-cli --export json
-bash bin/fast-cli --export wazuh
-```
-
-If no arguments are supplied, the wrapper shows CLI help:
-
-```bash
-bash bin/fast-cli
-```
-
-Wazuh CDB export accepts only validated IPv4/IPv4-CIDR keys; malformed and
-IPv6 values are skipped rather than written into the live CDB file.
-
-## Data semantics
-
-SQLite uniqueness is `(ioc_value, ioc_type)`. Repeated observations:
-
-- merge distinct source feeds;
-- merge tags without duplicates;
-- keep the earliest `first_seen`;
-- keep the latest `last_seen`;
-- recalculate confidence from distinct feed count (`25/50/75/100`).
-
-Normalized timestamps are stored as ISO-8601 UTC values.
-
 ## Tests and CI
 
-Every push to `main` runs `.github/workflows/ci.yml` with:
+Normal CI on `main` performs:
 
-- Python syntax compilation;
-- Bash syntax validation for deploy/management/agent/simulation scripts;
-- deterministic unit tests;
-- static Wazuh rule/deploy regression tests.
+- Python compilation;
+- browser JavaScript syntax checks;
+- Bash syntax checks;
+- deterministic unit/static integration tests.
 
-External-feed live tests are disabled in ordinary CI and can be enabled
-explicitly:
-
-```bash
-FAST_LIVE_FEEDS=1 python -m pytest tests/test_fetchers.py -v
-```
-
-Live Wazuh acceptance tests require a real Manager + Linux target:
+Live acceptance tests require a deployed Manager and Linux target:
 
 ```bash
 export TARGET_HOST=<TARGET_IP>
@@ -184,31 +191,31 @@ export TARGET_SSH_USER=<TARGET_USER>
 python -m pytest tests/acceptance -v
 ```
 
+## Documentation
+
+Start with [docs/README.md](docs/README.md).
+
+Key guides:
+
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [IOC Collector User Guide](docs/user_guide.md)
+- [UI / Tailscale Deployment](docs/UI_DEPLOYMENT.md)
+- [Security Operations](docs/SECURITY_OPERATIONS.md)
+- [Attack Simulation Guide](docs/SIMULATION_GUIDE.md)
+- [Detection Runbook](docs/runbook.md)
+- [MITRE ATT&CK Mapping](docs/MITRE_MAPPING.md)
+- [Feed Mapping](docs/feed_map.md)
+
 ## Security notes
 
-The upstream Wazuh 4.9 Docker compose uses default credentials and exposes
-several service ports. Before production/internet exposure:
+The repository is suitable for lab/demo use by default, not direct Internet production exposure. Before production use:
 
-- change the upstream default Wazuh credentials;
-- restrict Indexer/API/agent ports with the cloud firewall/security group;
-- prefer Tailscale/VPN for administration;
-- keep `.env` secrets out of git;
-- do not bind the FAST Flask UI publicly unless intentionally protected.
+- change upstream Wazuh default credentials;
+- restrict Wazuh ports with a firewall/VPN;
+- enable FAST authentication and use a strong session secret;
+- use secure cookies when served over HTTPS;
+- keep `.env` out of git;
+- verify TLS instead of relying on demo self-signed defaults where practical;
+- do not expose Docker socket or privileged deployment controls to the web container.
 
-FAST automatically detects/regenerates mixed or stale Wazuh TLS certificate
-bundles while preserving named Docker data volumes.
-
-## Project layout
-
-```text
-core/                         IOC fetch/normalize/db/scoring/export
-bin/fast                      unified lifecycle/status CLI
-deploy.sh                     Wazuh + collector deployment
-docker/rules/local_rules.xml  IOC + simulation detection rules
-refresh_iocs.sh               safe IOC refresh
-linux/                        Linux Wazuh agent installer
-windows/                      Windows Wazuh agent installer
-tests/                        unit/static + live acceptance tests
-docs/                         deployment/runbook/simulation guides
-app.py                        Flask IOC dashboard
-```
+**Documentation baseline:** 2026-09-29
