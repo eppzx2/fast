@@ -52,4 +52,4 @@ Supporting rules `100199`, `100210`, and `100220` are staging/intermediate rules
 - Wazuh is authoritative for telemetry; FAST never fabricates validation alerts.
 - Timestamps and examples are illustrative unless explicitly described as live output.
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
