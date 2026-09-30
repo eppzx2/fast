@@ -14,7 +14,7 @@ The browser never launches these simulations.
 ## 1. Update and verify the Manager
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 git checkout main
 git pull --ff-only origin main
 ./bin/fast up
@@ -42,7 +42,7 @@ The target should be `Active`.
 Run on the Target:
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 git checkout main
 git pull --ff-only origin main
 sudo ./tests/acceptance/sim/setup_prereqs.sh
@@ -140,7 +140,7 @@ docker exec single-node-wazuh.manager-1   sh -c "grep -E '\"id\":\"(100210|10021
 Run on the Target itself:
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 ./tests/acceptance/sim/simulate_lolbin.sh
 ```
 
