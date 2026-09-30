@@ -248,7 +248,7 @@ Current deploy/web container ownership handling is designed so host-side FAST to
 ## Update / deploy
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 git checkout main
 git pull --ff-only origin main
 ./bin/fast restart
