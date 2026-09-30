@@ -43,8 +43,8 @@ python3 --version
 ## 1. Clone main
 
 ```bash
-git clone https://github.com/eppzx2/fast-test.git fast-test
-cd fast-test
+git clone https://github.com/eppzx2/fast.git fast
+cd fast
 git checkout main
 git pull --ff-only origin main
 ```
@@ -210,8 +210,8 @@ The wrapper automatically:
 On the target:
 
 ```bash
-git clone https://github.com/eppzx2/fast-test.git fast-test
-cd fast-test
+git clone https://github.com/eppzx2/fast.git fast
+cd fast
 sudo ./linux/install-wazuh-agent.sh --ip <MANAGER_TAILSCALE_IP>
 ```
 
@@ -240,7 +240,7 @@ docker exec single-node-wazuh.manager-1 /var/ossec/bin/agent_control -l
 Run on the Linux target:
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 git pull --ff-only origin main
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
