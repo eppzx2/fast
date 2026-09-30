@@ -20,7 +20,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "FAST-IOC-Collector/1.0 (+https://github.com/eppzx2/fast-test)"
+USER_AGENT = "FAST-IOC-Collector/1.0 (+https://github.com/eppzx2/fast)"
 REQUEST_TIMEOUT = 20
 
 FEED_URLS = {
