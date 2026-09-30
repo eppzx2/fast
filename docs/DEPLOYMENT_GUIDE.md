@@ -359,4 +359,4 @@ rm -rf wazuh-docker
 
 Do not use the destructive reset merely to refresh IOCs or repair TLS.
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
