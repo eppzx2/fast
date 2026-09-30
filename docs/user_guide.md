@@ -264,4 +264,4 @@ Verify network access and `ABUSECH_AUTH_KEY`, then retry `./bin/fast-cli --fetch
 
 For provider-field details, see [feed_map.md](feed_map.md).
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
