@@ -196,7 +196,7 @@ See [MITRE_MAPPING.md](MITRE_MAPPING.md) for UI semantics.
 Run on the Linux target:
 
 ```bash
-cd ~/fast-test
+cd ~/fast
 git pull --ff-only origin main
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
