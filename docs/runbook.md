@@ -279,4 +279,4 @@ Tune thresholds only with observed environment data.
 - Validate every rule change with `wazuh-analysisd -t` before Manager restart.
 - Update `core/detections.py`, tests and documentation whenever primary rule IDs or semantics change.
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
