@@ -218,4 +218,4 @@ The repository is suitable for lab/demo use by default, not direct Internet prod
 - verify TLS instead of relying on demo self-signed defaults where practical;
 - do not expose Docker socket or privileged deployment controls to the web container.
 
-**Documentation baseline:** 2026-09-29
+**Documentation baseline:** 2026-09-30
