@@ -238,4 +238,4 @@ They are intentionally excluded from normal GitHub Actions because they require 
 
 See [runbook.md](runbook.md) for detection-engineering details and analyst response guidance.
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
