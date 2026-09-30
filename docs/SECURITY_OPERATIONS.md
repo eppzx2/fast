@@ -255,4 +255,4 @@ git pull --ff-only origin main
 ./bin/fast status
 ```
 
-**Last reviewed:** 2026-09-29
+**Last reviewed:** 2026-09-30
