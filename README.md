@@ -5,8 +5,8 @@ FAST combines OSINT threat intelligence, a pinned Wazuh 4.9.0 single-node SIEM, 
 ## Quick start
 
 ```bash
-git clone https://github.com/eppzx2/fast-test.git fast-test
-cd fast-test
+git clone https://github.com/eppzx2/fast.git fast
+cd fast
 ./bin/fast up
 ./bin/fast status
 ```
