@@ -47,7 +47,7 @@ Supporting rules `100199`, `100210`, and `100220` are staging/intermediate rules
 ## Documentation conventions
 
 - Commands target the repository's `main` branch.
-- Canonical local checkout name in examples is `fast-test`.
+- Canonical local checkout name in examples is `fast`.
 - `./bin/fast-cli` is preferred over direct `python cli.py`.
 - Wazuh is authoritative for telemetry; FAST never fabricates validation alerts.
 - Timestamps and examples are illustrative unless explicitly described as live output.
