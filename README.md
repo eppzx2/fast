@@ -1,6 +1,6 @@
 # F.A.S.T. — Fully Automated SIEM & Threat Intelligence Platform
 
-FAST combines OSINT threat intelligence, a pinned Wazuh 4.9.0 single-node SIEM, custom detections, incident workflow, MITRE ATT&CK mapping, and validation tooling in one lab-oriented platform.
+FAST combines TALON threat intelligence, a pinned Wazuh 4.9.0 single-node SIEM, custom detections, incident workflow, MITRE ATT&CK mapping, and validation tooling in one lab-oriented platform.
 
 ## Quick start
 
@@ -28,7 +28,7 @@ Main lifecycle commands:
 OSINT feeds
   |
   v
-FAST IOC Collector -> SQLite -> validated IPv4/CIDR CDB
+TALON IOC Collector -> SQLite -> validated IPv4/CIDR CDB
                                    |
                                    v
 Endpoint -> Wazuh Agent -> Wazuh Manager -> Filebeat -> Wazuh Indexer
@@ -52,7 +52,7 @@ Wazuh remains the source of truth for agents and alerts. FAST stores IOC data pl
 
 ## Threat feeds
 
-| Feed | FAST data | Access |
+| Feed | TALON data | Access |
 |---|---|---|
 | Feodo Tracker | botnet C2 IPv4s | public |
 | URLhaus | malicious URLs | abuse.ch Auth-Key preferred; compatibility fallback retained |
