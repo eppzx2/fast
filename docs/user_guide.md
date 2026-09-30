@@ -7,8 +7,8 @@ This guide covers the IOC collector and local web/API behavior on the current `m
 Clone the repository:
 
 ```bash
-git clone https://github.com/eppzx2/fast-test.git fast-test
-cd fast-test
+git clone https://github.com/eppzx2/fast.git fast
+cd fast
 ```
 
 Then use:
