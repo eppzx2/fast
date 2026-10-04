@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07110f">
+  <meta name="description" content="FAST — Fully Automated SIEM & Threat Intelligence Platform. A Wazuh-based security platform combining threat intelligence, custom detections, incident workflow, MITRE ATT&CK mapping, and validation tooling.">
+  <title>FAST — SIEM & Threat Intelligence Platform</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="FAST home"><span class="brand-mark">F</span><span class="brand-name">F.A.S.T.</span></a>
+    <nav class="nav" aria-label="Primary navigation"><a href="#architecture">Architecture</a><a href="#workflow">Workflow</a><a href="#detections">Detections</a><a href="#feeds">Threat Intel</a><a href="#docs">Docs</a></nav>
+    <a class="header-cta" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">View GitHub <span>↗</span></a>
+  </header>
+
+  <main id="top">
+    <section class="hero section-shell">
+      <div class="hero-copy reveal">
+        <div class="eyebrow"><span class="pulse"></span> READ-ONLY PLATFORM OVERVIEW</div>
+        <h1>Security telemetry.<br><span>Intelligence.</span> Action.</h1>
+        <p class="hero-lead">FAST combines threat intelligence, Wazuh SIEM telemetry, custom detections, incident triage, MITRE ATT&amp;CK mapping, and validation workflows into one focused security platform.</p>
+        <div class="hero-actions"><a class="button button-primary" href="#architecture">Explore architecture <span>↓</span></a><a class="button button-ghost" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">Source code <span>↗</span></a></div>
+        <div class="hero-meta"><span><i></i> Wazuh 4.9.0</span><span><i></i> TALON IOC Collector</span><span><i></i> MITRE ATT&amp;CK</span></div>
+      </div>
+      <div class="hero-visual reveal delay-1" aria-label="FAST platform status illustration">
+        <div class="orb orb-a"></div><div class="orb orb-b"></div>
+        <div class="terminal-card">
+          <div class="terminal-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="terminal-title">fast status</span><span class="terminal-live">LIVE ARCHITECTURE</span></div>
+          <div class="terminal-body">
+            <div class="term-line"><span class="prompt">$</span> ./bin/fast status</div><div class="term-gap"></div>
+            <div class="status-row"><span>Wazuh Manager</span><strong>HEALTHY</strong></div>
+            <div class="status-row"><span>Wazuh Indexer</span><strong>HEALTHY</strong></div>
+            <div class="status-row"><span>Filebeat → Indexer</span><strong>HEALTHY</strong></div>
+            <div class="status-row"><span>FAST Platform</span><strong>HEALTHY</strong></div><div class="term-gap"></div>
+            <div class="term-line muted">$ ./bin/fast-cli --fetch</div>
+            <div class="feed-line"><span class="mini-check">✓</span> IOC feeds normalized &amp; deduplicated</div>
+            <div class="feed-line"><span class="mini-check">✓</span> IPv4 / CIDR export validated</div>
+          </div>
+        </div>
+        <div class="floating-card card-a"><span class="card-icon">◈</span><div><small>Detection</small><b>100200 · Brute Force</b></div></div>
+        <div class="floating-card card-b"><span class="card-icon">◎</span><div><small>ATT&amp;CK</small><b>T1110 · Brute Force</b></div></div>
+      </div>
+    </section>
+
+    <section class="stats-strip section-shell reveal"><div><strong>4</strong><span>Threat intelligence feeds</span></div><div><strong>6</strong><span>Core validation rules</span></div><div><strong>3</strong><span>Primary incident detections</span></div><div><strong>1</strong><span>Unified analyst workflow</span></div></section>
+
+    <section class="section-shell section" id="architecture">
+      <div class="section-heading reveal"><div><span class="section-kicker">01 / ARCHITECTURE</span><h2>Built as a security pipeline,<br>not a collection of tools.</h2></div><p>FAST keeps each stage explicit: collect intelligence, normalize it, observe endpoints, correlate events, and present the result to an analyst.</p></div>
+      <div class="architecture-grid reveal">
+        <article class="arch-card intel"><div class="arch-number">01</div><div class="arch-icon">◌</div><span class="arch-label">THREAT INTELLIGENCE</span><h3>OSINT Feeds</h3><p>Feodo Tracker, URLhaus, MalwareBazaar and Spamhaus DROP supply raw indicators.</p><div class="chip-row"><span>IPs</span><span>URLs</span><span>Hashes</span><span>CIDRs</span></div></article>
+        <div class="connector"><span></span></div>
+        <article class="arch-card collector"><div class="arch-number">02</div><div class="arch-icon">⌘</div><span class="arch-label">INTELLIGENCE LAYER</span><h3>TALON IOC Collector</h3><p>Provider-specific records are normalized, deduplicated, scored and stored in SQLite.</p><div class="metric"><span>confidence</span><b>25 → 100</b></div></article>
+        <div class="connector"><span></span></div>
+        <article class="arch-card siem"><div class="arch-number">03</div><div class="arch-icon">▣</div><span class="arch-label">SIEM CORE</span><h3>Wazuh</h3><p>Agents send endpoint telemetry to the Manager, where custom FAST rules add security context.</p><div class="chip-row"><span>Agents</span><span>Rules</span><span>Alerts</span></div></article>
+        <div class="connector"><span></span></div>
+        <article class="arch-card platform"><div class="arch-number">04</div><div class="arch-icon">◈</div><span class="arch-label">ANALYST LAYER</span><h3>FAST Web UI</h3><p>Incidents, detections, MITRE mappings, validation state and system health in one view.</p><div class="chip-row"><span>Incidents</span><span>MITRE</span><span>Validation</span></div></article>
+      </div>
+      <div class="data-path reveal"><div class="data-path-title">DATA PATH</div><div class="path-item"><b>Endpoint</b><span>→</span><small>Wazuh Agent</small></div><div class="path-item"><b>Manager</b><span>→</span><small>Custom Rules</small></div><div class="path-item"><b>Filebeat</b><span>→</span><small>Indexer</small></div><div class="path-item"><b>FAST UI</b><span>→</span><small>Analyst</small></div></div>
+    </section>
+
+    <section class="section-shell section" id="workflow">
+      <div class="section-heading reveal"><div><span class="section-kicker">02 / OPERATING MODEL</span><h2>From signal to<br>security decision.</h2></div><p>The platform separates collection, detection and analyst-owned state so a raw event can become a traceable investigation.</p></div>
+      <div class="workflow reveal"><div class="workflow-line"></div><article class="step"><span>01</span><div><h3>Collect</h3><p>Pull fresh indicators from public and authenticated threat feeds.</p></div></article><article class="step"><span>02</span><div><h3>Normalize</h3><p>Unify provider formats, timestamps, tags and confidence across feeds.</p></div></article><article class="step"><span>03</span><div><h3>Observe</h3><p>Wazuh Agents deliver endpoint and security telemetry to the Manager.</p></div></article><article class="step"><span>04</span><div><h3>Correlate</h3><p>FAST rules turn repeated or suspicious behavior into high-value detections.</p></div></article><article class="step"><span>05</span><div><h3>Investigate</h3><p>Analysts review context, MITRE mapping, notes, assignee and incident state.</p></div></article></div>
+    </section>
+
+    <section class="section-shell section" id="detections">
+      <div class="section-heading reveal"><div><span class="section-kicker">03 / DETECTION ENGINEERING</span><h2>Noise is staged.<br>Signal is promoted.</h2></div><p>Intermediate rules remain quiet while correlation rules create the actionable incidents surfaced by FAST.</p></div>
+      <div class="detection-table reveal"><div class="table-head"><span>RULE</span><span>SCENARIO</span><span>TRIGGER</span><span>LEVEL</span></div><div class="table-row"><strong>100200</strong><span>SSH brute force</span><span>5 failures · same source · 60s</span><em>10</em></div><div class="table-row"><strong>100211</strong><span>Port scan</span><span>8+ probes · same source · 60s</span><em>7</em></div><div class="table-row"><strong>100221</strong><span>LOLBin / masquerading</span><span>httpd signal + wget-style arguments</span><em>12</em></div></div>
+      <div class="staging-note reveal"><span>STAGING</span><p><b>100199</b>, <b>100210</b> and <b>100220</b> provide low-noise intermediate signals. They are intentionally separated from the three primary incident rules.</p></div>
+    </section>
+
+    <section class="section-shell section" id="feeds">
+      <div class="section-heading reveal"><div><span class="section-kicker">04 / THREAT INTELLIGENCE</span><h2>Four feeds.<br>One normalized view.</h2></div><p>FAST hides provider-specific formats behind a consistent IOC model and exports validated IPv4/CIDR intelligence for Wazuh CDB matching.</p></div>
+      <div class="feed-grid reveal"><article class="feed-card"><span class="feed-index">01</span><h3>Feodo Tracker</h3><p>Botnet command-and-control IPv4 indicators.</p><span class="feed-type">IP / PUBLIC</span></article><article class="feed-card"><span class="feed-index">02</span><h3>URLhaus</h3><p>Malicious URLs and associated threat metadata.</p><span class="feed-type">URL / ABUSE.CH</span></article><article class="feed-card"><span class="feed-index">03</span><h3>MalwareBazaar</h3><p>Malware hashes and sample metadata.</p><span class="feed-type">HASH / ABUSE.CH</span></article><article class="feed-card"><span class="feed-index">04</span><h3>Spamhaus DROP</h3><p>Malicious IPv4 and CIDR netblocks.</p><span class="feed-type">CIDR / PUBLIC</span></article></div>
+    </section>
+
+    <section class="section-shell section split-section"><div class="panel reveal"><span class="section-kicker">05 / ANALYST EXPERIENCE</span><h2>Everything needed to explain an alert.</h2><ul class="feature-list"><li><span>01</span><div><b>Incident context</b><p>Host, agent, source/destination, process and raw event details.</p></div></li><li><span>02</span><div><b>Analyst state</b><p>Status, assignee and notes persist as workflow metadata.</p></div></li><li><span>03</span><div><b>MITRE ATT&amp;CK</b><p>Map primary detections to techniques and understand attacker behavior.</p></div></li><li><span>04</span><div><b>Validation lab</b><p>Reproduce known scenarios and verify that expected rules actually fire.</p></div></li></ul></div><div class="code-panel reveal delay-1"><div class="code-top"><span>FAST / ANALYST VIEW</span><span>READ ONLY</span></div><div class="code-content"><div><span class="c-key">incident</span> <span class="c-punc">{</span></div><div class="indent"><span class="c-key">rule</span>: <span class="c-string">"100200"</span>,</div><div class="indent"><span class="c-key">severity</span>: <span class="c-number">10</span>,</div><div class="indent"><span class="c-key">scenario</span>: <span class="c-string">"SSH brute force"</span>,</div><div class="indent"><span class="c-key">mitre</span>: <span class="c-string">"T1110"</span>,</div><div class="indent"><span class="c-key">source</span>: <span class="c-string">"203.0.113.42"</span>,</div><div class="indent"><span class="c-key">state</span>: <span class="c-string">"Investigating"</span></div><div><span class="c-punc">}</span></div><div class="cursor-line"><span class="cursor"></span> analyst workflow ready</div></div></div></section>
+
+    <section class="section-shell section final-section" id="docs"><div class="final-card reveal"><div class="final-glow"></div><span class="section-kicker">06 / PROJECT</span><h2>Explore the platform.<br>Read the architecture.<br><span>Run the system.</span></h2><p>FAST is designed as a transparent, lab-oriented security platform: the architecture is documented, the detections are testable, and the source is public.</p><div class="final-actions"><a class="button button-primary" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">Open repository <span>↗</span></a><a class="button button-ghost" href="https://github.com/eppzx2/fast/tree/main/docs" target="_blank" rel="noreferrer">Read documentation <span>↗</span></a></div></div></section>
+  </main>
+
+  <footer class="site-footer section-shell"><div><span class="footer-brand">F.A.S.T.</span><span>Fully Automated SIEM &amp; Threat Intelligence Platform</span></div><div><span>Wazuh · TALON · MITRE ATT&amp;CK</span><span>© 2026</span></div></footer>
+  <script src="script.js"></script>
+</body>
+</html>
