@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050908">
+  <meta name="description" content="FAST interactive read-only demonstration — replay threat intelligence and security detection workflows.">
+  <title>FAST — Interactive Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="../index.html" aria-label="FAST home"><span class="brand-mark">F</span><span>F.A.S.T.</span></a>
+    <div class="topbar-center"><span class="live-dot"></span> READ-ONLY DEMO REPLAY</div>
+    <a class="back-link" href="../index.html">← Back to platform</a>
+  </header>
+
+  <main class="shell">
+    <section class="intro">
+      <div>
+        <div class="eyebrow">FAST / INTERACTIVE DEMO</div>
+        <h1>See how a signal becomes an <span>incident.</span></h1>
+        <p>Replay sanitized FAST event data and watch the collection, detection, MITRE mapping and incident workflow unfold step by step.</p>
+      </div>
+      <div class="safe-badge"><strong>SAFE MODE</strong><span>No commands execute · No infrastructure changes · No external requests</span></div>
+    </section>
+
+    <section class="scenario-grid" aria-label="Demo scenarios">
+      <button class="scenario active" data-scenario="ssh">
+        <span class="scenario-index">01</span><span class="scenario-icon">↯</span><span class="scenario-kicker">DETECTION REPLAY</span><strong>SSH Brute Force</strong><span class="scenario-meta">Rule 100200 · T1110</span><span class="scenario-run">Run replay <b>→</b></span>
+      </button>
+      <button class="scenario" data-scenario="scan">
+        <span class="scenario-index">02</span><span class="scenario-icon">⌁</span><span class="scenario-kicker">DETECTION REPLAY</span><strong>Port Scan</strong><span class="scenario-meta">Rule 100211 · T1046</span><span class="scenario-run">Run replay <b>→</b></span>
+      </button>
+      <button class="scenario" data-scenario="lolbin">
+        <span class="scenario-index">03</span><span class="scenario-icon">◈</span><span class="scenario-kicker">DETECTION REPLAY</span><strong>LOLBIN / Masquerading</strong><span class="scenario-meta">Rule 100221 · T1036.003</span><span class="scenario-run">Run replay <b>→</b></span>
+      </button>
+      <button class="scenario" data-scenario="ioc">
+        <span class="scenario-index">04</span><span class="scenario-icon">◎</span><span class="scenario-kicker">INTELLIGENCE REPLAY</span><strong>IOC Feed Update</strong><span class="scenario-meta">TALON · SQLite · CDB</span><span class="scenario-run">Run replay <b>→</b></span>
+      </button>
+    </section>
+
+    <section class="workspace">
+      <div class="workspace-head">
+        <div><span class="section-kicker">LIVE REPLAY</span><h2 id="scenarioTitle">SSH Brute Force</h2><p id="scenarioSubtitle">Repeated authentication failures are correlated into FAST rule 100200.</p></div>
+        <div class="replay-actions"><button id="replayBtn" class="run-button">▶ Run Replay</button><button id="resetBtn" class="reset-button">Reset</button></div>
+      </div>
+
+      <div class="pipeline" id="pipeline" aria-label="FAST processing pipeline"></div>
+
+      <div class="monitor-grid">
+        <section class="event-panel panel">
+          <div class="panel-head"><span>EVENT STREAM</span><span id="eventCounter">0 / 8</span></div>
+          <div class="event-list" id="eventList"><div class="empty-state">Choose a scenario and run the replay.</div></div>
+        </section>
+
+        <section class="incident-panel panel" id="incidentPanel">
+          <div class="panel-head"><span>RESULT</span><span id="resultState">WAITING</span></div>
+          <div class="incident-content" id="incidentContent"><div class="result-placeholder"><span>◈</span><strong>Awaiting simulation</strong><p>The incident result will appear here after the replay reaches its detection stage.</p></div></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="details-grid">
+      <article class="detail-card">
+        <span class="section-kicker">PROCESSING MODEL</span>
+        <h2 id="modelTitle">Detection &amp; Incident</h2>
+        <div class="model-flow" id="modelFlow"></div>
+      </article>
+      <article class="detail-card raw-card">
+        <div class="raw-head"><span class="section-kicker">RAW EVENT</span><span>READ ONLY</span></div>
+        <pre id="rawEvent">{
+  "status": "waiting",
+  "message": "Run a replay to inspect sanitized event data."
+}</pre>
+      </article>
+    </section>
+
+    <section class="architecture-replay">
+      <div class="arch-replay-copy"><span class="section-kicker">HOW FAST WORKS</span><h2>Two flows.<br><span>One platform.</span></h2><p>FAST keeps threat intelligence ingestion separate from endpoint detection, then brings the resulting context together in the analyst layer.</p></div>
+      <div class="flow-columns">
+        <div class="flow-card"><div class="flow-title"><span>01</span> THREAT INTELLIGENCE</div><div class="flow-node">Threat Feeds</div><i>↓</i><div class="flow-node">TALON IOC Collector</div><i>↓</i><div class="flow-node">SQLite IOC DB</div><i>↓</i><div class="flow-node">Validated CDB</div><i>↓</i><div class="flow-node final">Wazuh</div></div>
+        <div class="flow-card"><div class="flow-title"><span>02</span> DETECTION &amp; INCIDENT</div><div class="flow-node">Endpoint</div><i>↓</i><div class="flow-node">Wazuh Agent</div><i>↓</i><div class="flow-node">Wazuh Manager</div><i>↓</i><div class="flow-node">FAST Rules</div><i>↓</i><div class="flow-node final">Incident + MITRE</div></div>
+      </div>
+    </section>
+
+    <section class="finish"><div><span class="section-kicker">DEMO COMPLETE</span><h2>Want to run the real platform?</h2><p>This public demo is intentionally read-only. Deploy the full FAST stack on Linux to run Wazuh, TALON, the IOC database and the analyst UI.</p></div><div class="finish-actions"><a class="button primary" href="../../README.md">Deploy FAST</a><a class="button ghost" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">GitHub ↗</a></div></section>
+  </main>
+
+  <footer class="footer"><span>F.A.S.T. · Fully Automated SIEM &amp; Threat Intelligence Platform</span><span>Read-only public demonstration · 2026</span></footer>
+  <script src="script.js"></script>
+</body>
+</html>
