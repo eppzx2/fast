@@ -2,6 +2,13 @@
 
 FAST combines TALON threat intelligence, a pinned Wazuh 4.9.0 single-node SIEM, custom detections, incident workflow, MITRE ATT&CK mapping, and validation tooling in one lab-oriented platform.
 
+## Public project landing page
+
+FAST includes a static, read-only architecture and project overview for presentations and public sharing:
+
+- [Landing page source](landing/)
+- Deploy it as a static site from the `landing` directory with Vercel or Render.
+
 ## Quick start
 
 ```bash
