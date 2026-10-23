@@ -11,7 +11,8 @@
 #      it if files are missing, mixed, stale, or fail CA-chain validation
 #   3. Starts the Wazuh stack with a FULLY DEFAULT configuration
 #   4. Verifies the initial Manager state (authd/analysisd/remoted)
-#   5. Builds the IOC Collector image and runs the first collection
+#   5. Applies bounded Wazuh index retention and log rotation
+#   6. Builds the IOC Collector image and runs the first collection
 #   6. Installs the CDB list + custom rules, validates them with analysisd -t
 #   7. Restarts the Manager once and verifies Manager + Filebeat->Indexer health
 #
@@ -330,6 +331,38 @@ ensure_ioc_list_registered() {
     fi
 }
 
+ensure_wazuh_log_rotation() {
+    # Wazuh alert output files are otherwise allowed to grow without a size
+    # ceiling. Rotate daily and also when a file reaches 20 MiB; the retention
+    # sidecar removes compressed rotations older than FAST_WAZUH_RETENTION_DAYS.
+    python3 - "$WAZUH_MANAGER_CONF" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    text = handle.read()
+
+match = re.search(r"(<global\\b[^>]*>)(.*?)(</global\\s*>)", text, re.S)
+if not match:
+    raise SystemExit(f"Could not find <global> section in {path}")
+
+body = match.group(2)
+for tag, value in (("rotate_interval", "1d"), ("max_output_size", "20M")):
+    pattern = re.compile(rf"(?m)^([ \\t]*)<{tag}>[^\\n]*</{tag}>[ \\t]*$")
+    replacement = f"<{tag}>{value}</{tag}>"
+    if pattern.search(body):
+        body = pattern.sub(lambda m: m.group(1) + replacement, body, count=1)
+    else:
+        body = body.rstrip() + f"\\n    {replacement}\\n  "
+
+text = text[:match.start(2)] + body + text[match.end(2):]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(text)
+print("✓ Wazuh alert output rotation bounded (daily / 20 MiB)")
+PYEOF
+}
+
 validate_manager_configuration() {
     echo "🧪 Validating Wazuh rules/configuration before restart..."
     if docker exec "$MANAGER_CONTAINER" /var/ossec/bin/wazuh-analysisd -t; then
@@ -349,6 +382,7 @@ else
 fi
 
 cd "$WAZUH_SINGLE_NODE_DIR"
+ensure_wazuh_log_rotation
 prepare_wazuh_certificates
 
 echo "🩺 Applying container healthcheck definitions (no volumes, safe to reuse)..."
@@ -381,6 +415,10 @@ if ! wait_for_manager_healthy; then
         exit 1
     fi
 fi
+
+echo ""
+echo "🧹 Applying bounded Wazuh index retention..."
+bash "$PROJECT_ROOT/scripts/configure_wazuh_retention.sh"
 
 echo ""
 echo "════════════════════════════════════════════════════════"
