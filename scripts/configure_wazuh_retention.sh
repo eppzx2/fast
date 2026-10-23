@@ -96,11 +96,43 @@ curl "${CURL_ARGS[@]}" --fail -X PUT "$POLICY_URL" \
     -H "Content-Type: application/json" --data "$POLICY_BODY" >/dev/null
 echo "[retention] Policy configured for $RETENTION_DAYS days."
 
-# Apply to existing time-series indices. New indices inherit the policy through
-# the ISM template above. Other state/inventory indices are deliberately excluded.
-for pattern in 'wazuh-alerts-4.x-*' 'wazuh-archives-4.x-*' 'wazuh-monitoring-*' 'wazuh-statistics-*'; do
-    curl "${CURL_ARGS[@]}" --fail -X POST "$ISM_BASE/add/$pattern" \
-        -H "Content-Type: application/json" --data "{\"policy_id\":\"$POLICY_ID\"}" >/dev/null || true
-done
+# Attach the policy to existing time-series indices one by one. Current-state
+# and inventory indices are intentionally excluded because they are not history.
+index_json="$(curl "${CURL_ARGS[@]}" --fail "$INDEXER_URL/_cat/indices/wazuh-*?h=index&format=json")"
+index_names="$(printf '%s' "$index_json" | python3 -c 'import json,sys; rows=json.load(sys.stdin); print("\\n".join(row["index"] for row in rows if row.get("index")))')"
 
-echo "[retention] Policy installed; matching time-series indices are covered."
+while IFS= read -r index; do
+    [[ -n "$index" ]] || continue
+    case "$index" in
+        wazuh-alerts-4.x-*|wazuh-archives-4.x-*|wazuh-monitoring-*|wazuh-statistics-*) ;;
+        *) continue ;;
+    esac
+
+    explain="$(curl "${CURL_ARGS[@]}" --fail "$ISM_BASE/explain/$index?show_policy=true" 2>/dev/null || true)"
+    current_policy="$(printf '%s' "$explain" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    entry = data.get(sys.argv[1], {})
+    if isinstance(entry, dict):
+        print(entry.get("policy_id") or entry.get("index.plugins.index_state_management.policy_id") or "")
+    else:
+        print("")
+except Exception:
+    print("")
+' "$index" 2>/dev/null || true)"
+
+    if [[ "$current_policy" == "$POLICY_ID" ]]; then
+        continue
+    elif [[ -n "$current_policy" ]]; then
+        curl "${CURL_ARGS[@]}" --fail -X POST "$ISM_BASE/change_policy/$index" \
+            -H "Content-Type: application/json" \
+            --data "{\"policy_id\":\"$POLICY_ID\",\"state\":\"active\"}" >/dev/null
+    else
+        curl "${CURL_ARGS[@]}" --fail -X POST "$ISM_BASE/add/$index" \
+            -H "Content-Type: application/json" --data "{\"policy_id\":\"$POLICY_ID\"}" >/dev/null
+    fi
+    echo "[retention] Attached policy to $index"
+done <<< "$index_names"
+
+echo "[retention] Policy installed; existing and future matching time-series indices are covered."
