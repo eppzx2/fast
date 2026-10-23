@@ -9,12 +9,12 @@
 #      (first run only - this step is skipped on later runs)
 #   2. Verifies the Wazuh TLS certificate bundle and automatically regenerates
 #      it if files are missing, mixed, stale, or fail CA-chain validation
-#   3. Starts the Wazuh stack with a FULLY DEFAULT configuration
+#   3. Starts the pinned Wazuh stack with FAST health/storage overrides
 #   4. Verifies the initial Manager state (authd/analysisd/remoted)
 #   5. Applies bounded Wazuh index retention and log rotation
 #   6. Builds the IOC Collector image and runs the first collection
-#   6. Installs the CDB list + custom rules, validates them with analysisd -t
-#   7. Restarts the Manager once and verifies Manager + Filebeat->Indexer health
+#   7. Installs the CDB list + custom rules, validates them with analysisd -t
+#   8. Restarts the Manager once and verifies Manager + Filebeat->Indexer health
 #
 # REQUIREMENTS: Docker + Docker Compose plugin must be installed
 #
