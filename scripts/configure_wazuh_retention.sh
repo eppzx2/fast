@@ -98,8 +98,8 @@ echo "[retention] Policy configured for $RETENTION_DAYS days."
 
 # Attach the policy to existing time-series indices one by one. Current-state
 # and inventory indices are intentionally excluded because they are not history.
-index_json="$(curl "${CURL_ARGS[@]}" --fail "$INDEXER_URL/_cat/indices/wazuh-*?h=index&format=json")"
-index_names="$(printf '%s' "$index_json" | python3 -c 'import json,sys; rows=json.load(sys.stdin); print("\\n".join(row["index"] for row in rows if row.get("index")))')"
+index_json="$(curl "${CURL_ARGS[@]}" --fail "$INDEXER_URL/_cat/indices/wazuh-*?h=index&format=json&allow_no_indices=true")"
+index_names="$(printf '%s' "$index_json" | python3 -c 'import json,sys; rows=json.load(sys.stdin); print("\n".join(row["index"] for row in rows if row.get("index")))')"
 
 while IFS= read -r index; do
     [[ -n "$index" ]] || continue
