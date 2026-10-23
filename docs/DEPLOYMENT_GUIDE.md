@@ -277,6 +277,33 @@ Before using Funnel outside a controlled demo, enable FAST authentication.
 
 The refresh runs the collector as the host UID/GID and fails instead of replacing the live CDB when feed collection, export validation, Wazuh validation, Manager recovery, or Filebeat -> Indexer health fails.
 
+## 13. Storage retention and disk growth
+
+The single-node Wazuh stack stores indexed alerts in Docker volumes and also writes manager log files. On small cloud disks, unbounded history and container stdout logs can eventually fill the root filesystem.
+
+FAST now applies these defaults during `./bin/fast up`:
+
+- **7-day index retention** for time-series `wazuh-alerts-4.x-*`, `wazuh-archives-4.x-*` (if enabled), `wazuh-monitoring-*`, and `wazuh-statistics-*` indices. The Index State Management (ISM) policy applies to existing matching indices and automatically to new ones.
+- **Wazuh alert-file rotation** daily and when an output file reaches 20 MiB. A small retention sidecar removes compressed rotated Wazuh log files older than the configured retention period.
+- **Docker stdout/stderr log caps** of 10 MiB per file and 3 files per container.
+- **No duplicate collector build** for the web UI. `deploy.sh` builds `osint-ioc-collector` once and the UI reuses that image. Deployment also prunes dangling images and build cache older than 7 days; it does not prune Docker volumes.
+
+To retain 14 days instead of the 7-day default, pass the setting to the deployment:
+
+```bash
+FAST_WAZUH_RETENTION_DAYS=14 ./bin/fast up --ip <MANAGER_TAILSCALE_IP>
+```
+
+**Important:** indices and compressed rotated logs older than the configured retention period are permanently removed. This default is intended for a small lab/demo environment, not a compliance archive. Current-state and inventory indices are excluded from index deletion.
+
+Check storage use with:
+
+```bash
+df -h
+sudo docker system df
+sudo du -sh /var/lib/docker/volumes/*/_data 2>/dev/null | sort -h
+```
+
 ## Detection chain deployed by FAST
 
 ```text
