@@ -343,18 +343,18 @@ path = sys.argv[1]
 with open(path, encoding="utf-8") as handle:
     text = handle.read()
 
-match = re.search(r"(<global\\b[^>]*>)(.*?)(</global\\s*>)", text, re.S)
+match = re.search(r"(<global\b[^>]*>)(.*?)(</global\s*>)", text, re.S)
 if not match:
     raise SystemExit(f"Could not find <global> section in {path}")
 
 body = match.group(2)
 for tag, value in (("rotate_interval", "1d"), ("max_output_size", "20M")):
-    pattern = re.compile(rf"(?m)^([ \\t]*)<{tag}>[^\\n]*</{tag}>[ \\t]*$")
+    pattern = re.compile(rf"(?m)^([ \t]*)<{tag}>[^\n]*</{tag}>[ \t]*$")
     replacement = f"<{tag}>{value}</{tag}>"
     if pattern.search(body):
         body = pattern.sub(lambda m: m.group(1) + replacement, body, count=1)
     else:
-        body = body.rstrip() + f"\\n    {replacement}\\n  "
+        body = body.rstrip() + f"\n    {replacement}\n  "
 
 text = text[:match.start(2)] + body + text[match.end(2):]
 with open(path, "w", encoding="utf-8") as handle:
