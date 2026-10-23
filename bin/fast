@@ -47,6 +47,7 @@ WAZUH_COMPOSE_DIR="$PROJECT_ROOT/wazuh-docker/single-node"
 MANAGER_CONTAINER="single-node-wazuh.manager-1"
 INDEXER_CONTAINER="single-node-wazuh.indexer-1"
 DASHBOARD_CONTAINER="single-node-wazuh.dashboard-1"
+RETENTION_CONTAINER="fast-wazuh-log-retention"
 IOC_IMAGE="osint-ioc-collector"
 IOC_WEB_CONTAINER="fast-ioc-collector-web"
 FAST_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.fast.yml"
@@ -204,11 +205,16 @@ cmd_up() {
 
     echo ""
     echo "[1b/2] Starting the FAST web app container (persistent, health-checked)..."
-    if (cd "$PROJECT_ROOT" && docker compose -f "$FAST_COMPOSE_FILE" up -d --build) >/dev/null; then
-        echo "[OK] FAST web app container started (http://localhost:5000)"
+    if (cd "$PROJECT_ROOT" && docker compose -f "$FAST_COMPOSE_FILE" up -d --no-build) >/dev/null; then
+        echo "[OK] FAST web app container started (http://localhost:5000; reusing collector image)"
     else
         echo "[WARN] FAST web app container failed to start (non-fatal, Wazuh is unaffected)" >&2
     fi
+
+    echo ""
+    echo "[storage] Pruning dangling images and build cache older than 7 days (volumes preserved)..."
+    docker image prune -f >/dev/null 2>&1 || true
+    docker builder prune -f --filter "until=168h" >/dev/null 2>&1 || true
 
     echo ""
     echo "[2/2] Verifying services..."
@@ -305,10 +311,11 @@ cmd_status() {
         echo "Wazuh Indexer        [ UNKNOWN ] (Docker unavailable)"
         echo "Wazuh Dashboard      [ UNKNOWN ] (Docker unavailable)"
     else
-        local m_state i_state d_state m_health
+        local m_state i_state d_state r_state m_health
         m_state=$(container_state "$MANAGER_CONTAINER")
         i_state=$(container_state "$INDEXER_CONTAINER")
         d_state=$(container_state "$DASHBOARD_CONTAINER")
+        r_state=$(container_state "$RETENTION_CONTAINER")
 
         print_component() {
             local label="$1" state="$2"
@@ -322,12 +329,14 @@ cmd_status() {
         print_component "Wazuh Manager" "$m_state"
         print_component "Wazuh Indexer" "$i_state"
         print_component "Wazuh Dashboard" "$d_state"
+        print_component "Log retention" "$r_state"
 
         echo ""
         echo "Docker:"
         printf "  %-20s %s\n" "$MANAGER_CONTAINER" "$m_state"
         printf "  %-20s %s\n" "$INDEXER_CONTAINER" "$i_state"
         printf "  %-20s %s\n" "$DASHBOARD_CONTAINER" "$d_state"
+        printf "  %-20s %s\n" "$RETENTION_CONTAINER" "$r_state"
 
         if [ "$m_state" = "running" ]; then
             m_health=$(manager_process_health)
@@ -389,7 +398,8 @@ cmd_status() {
     elif [ "${m_health:-unreachable}" = "healthy" ] \
          && [ "$fb_health" = "healthy" ] \
          && [ "$(container_state "$INDEXER_CONTAINER")" = "running" ] \
-         && [ "$(container_state "$DASHBOARD_CONTAINER")" = "running" ]; then
+         && [ "$(container_state "$DASHBOARD_CONTAINER")" = "running" ] \
+         && [ "$(container_state "$RETENTION_CONTAINER")" = "running" ]; then
         echo "  FAST                 [ HEALTHY ]"
         return 0
     else
