@@ -294,6 +294,13 @@ To retain 14 days instead of the 7-day default, pass the setting to the deployme
 FAST_WAZUH_RETENTION_DAYS=14 ./bin/fast up --ip <MANAGER_TAILSCALE_IP>
 ```
 
+If you changed the Indexer `admin` password from the stack's lab default, pass the matching password to the deployment as well:
+
+```bash
+FAST_WAZUH_INDEXER_ADMIN_PASSWORD='<your-indexer-admin-password>' ./bin/fast up --ip <MANAGER_TAILSCALE_IP>
+```
+
+
 **Important:** indices and compressed rotated logs older than the configured retention period are permanently removed. This default is intended for a small lab/demo environment, not a compliance archive. Current-state and inventory indices are excluded from index deletion.
 
 Check storage use with:
