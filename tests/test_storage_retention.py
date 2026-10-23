@@ -44,3 +44,12 @@ def test_docker_cleanup_never_prunes_persistent_volumes():
     assert "docker image prune -f" in fast_cli
     assert 'docker builder prune -f --filter "until=168h"' in fast_cli
     assert "docker volume prune" not in fast_cli
+
+
+
+def test_storage_retention_defaults_and_data_expiry_are_documented():
+    guide = (ROOT / "docs" / "DEPLOYMENT_GUIDE.md").read_text(encoding="utf-8")
+    assert "7-day index retention" in guide
+    assert "permanently removed" in guide
+    assert "FAST_WAZUH_RETENTION_DAYS=14" in guide
+    assert "FAST_WAZUH_INDEXER_ADMIN_PASSWORD" in guide
