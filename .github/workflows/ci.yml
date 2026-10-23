@@ -2,7 +2,7 @@ name: FAST CI
 
 on:
   push:
-    branches: [main, feature/fast-ui]
+    branches: [main, feature/fast-ui, fast-test-ui]
   pull_request:
 
 permissions:
@@ -37,6 +37,7 @@ jobs:
       - name: Shell syntax
         run: |
           bash -n deploy.sh
+          bash -n scripts/configure_wazuh_retention.sh
           bash -n bin/fast
           bash -n bin/fast-share
           bash -n bin/fast-cli
