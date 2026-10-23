@@ -72,7 +72,7 @@ services:
       - -ec
       - |
         while true; do
-          find /var/ossec/logs -type f \( -name '*.gz' -o -name '*.sum' \) -mtime "+$${FAST_WAZUH_RETENTION_DAYS}" -delete || true
+          find /var/ossec/logs -type f \( -name '*.gz' -o -name '*.sum' \) -mtime "+$${FAST_WAZUH_RETENTION_DAYS}" -exec rm -f {} \;
           sleep 86400
         done
     volumes:
