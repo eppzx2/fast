@@ -21,6 +21,11 @@ services:
       timeout: 10s
       retries: 9
       start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wazuh.indexer:
     healthcheck:
@@ -31,6 +36,11 @@ services:
       timeout: 5s
       retries: 9
       start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wazuh.dashboard:
     ports: !override
@@ -43,3 +53,32 @@ services:
       timeout: 5s
       retries: 9
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Keeps Wazuh's compressed rotated logs bounded without touching active files
+  # or any Docker volume data. Wazuh rotates alert output daily / at 20 MiB.
+  fast-wazuh-log-retention:
+    image: alpine:3.22
+    container_name: fast-wazuh-log-retention
+    restart: unless-stopped
+    environment:
+      FAST_WAZUH_RETENTION_DAYS: "${FAST_WAZUH_RETENTION_DAYS:-7}"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        while true; do
+          find /var/ossec/logs -type f \\( -name '*.gz' -o -name '*.sum' \\) -mtime "+${FAST_WAZUH_RETENTION_DAYS}" -delete || true
+          sleep 86400
+        done
+    volumes:
+      - wazuh_logs:/var/ossec/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
