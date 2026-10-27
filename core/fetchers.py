@@ -5,18 +5,13 @@ provider outage cannot stop the remaining feeds. Callers can inspect the
 returned per-feed lists and decide whether an all-feed failure is fatal.
 """
 
-import csv
+import ipaddress
 import json
 import logging
-import os
 from typing import Any, Dict, List
+from urllib.parse import urlsplit
 
 import requests
-from dotenv import load_dotenv
-
-# The project root is mounted as /app in FAST's collector containers. load_dotenv
-# also works for local CLI use and never overwrites an explicitly exported value.
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -25,55 +20,14 @@ REQUEST_TIMEOUT = 20
 
 FEED_URLS = {
     "feodo": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
-    "urlhaus_legacy": "https://urlhaus.abuse.ch/downloads/csv_recent/",
-    "urlhaus_api": "https://urlhaus-api.abuse.ch/v2/files/exports/{auth_key}/recent.csv",
-    "malwarebazaar_api": "https://mb-api.abuse.ch/api/v1/",
-    "malwarebazaar_legacy": "https://bazaar.abuse.ch/export/csv/recent/",
+    "blocklist_de": "https://lists.blocklist.de/lists/all.txt",
+    "openphish": "https://openphish.com/feed.txt",
     "spamhaus": "https://www.spamhaus.org/drop/drop_v4.json",
 }
 
 
 def _headers() -> Dict[str, str]:
     return {"User-Agent": USER_AGENT}
-
-
-def _abusech_auth_key() -> str:
-    return os.getenv("ABUSECH_AUTH_KEY", "").strip()
-
-
-def _parse_commented_csv(text: str, default_fieldnames: List[str]) -> List[Dict[str, Any]]:
-    """Parse abuse.ch-style CSV files whose header is prefixed with '#'."""
-    lines = text.splitlines()
-    data_lines = [line for line in lines if line and not line.startswith("#")]
-    if not data_lines:
-        return []
-
-    header_line = None
-    for line in lines:
-        stripped = line.lstrip("# ").strip()
-        if not stripped:
-            continue
-        lowered = stripped.lower().lstrip('"')
-        if lowered.startswith("id,") or lowered.startswith("first_seen"):
-            header_line = stripped
-            break
-
-    if header_line:
-        fieldnames = [h.strip().strip('"') for h in next(csv.reader([header_line]))]
-    else:
-        fieldnames = default_fieldnames
-
-    reader = csv.DictReader(data_lines, fieldnames=fieldnames, skipinitialspace=True)
-    parsed: List[Dict[str, Any]] = []
-    for row in reader:
-        parsed.append(
-            {
-                key: (value.strip().strip('"') if isinstance(value, str) else value)
-                for key, value in row.items()
-                if key is not None
-            }
-        )
-    return parsed
 
 
 def fetch_feodo() -> List[Dict[str, Any]]:
@@ -100,98 +54,62 @@ def fetch_feodo() -> List[Dict[str, Any]]:
     return []
 
 
-def fetch_urlhaus() -> List[Dict[str, Any]]:
-    """Fetch recent malicious URLs from URLhaus.
-
-    Current URLhaus Community API exports require an Auth-Key. FAST uses that
-    endpoint whenever ABUSECH_AUTH_KEY is configured and otherwise retains the
-    historical CSV endpoint as a compatibility fallback.
-    """
-    auth_key = _abusech_auth_key()
-    if auth_key:
-        url = FEED_URLS["urlhaus_api"].format(auth_key=auth_key)
-    else:
-        url = FEED_URLS["urlhaus_legacy"]
-        logger.warning(
-            "URLhaus: ABUSECH_AUTH_KEY is not set; using the legacy CSV compatibility endpoint"
-        )
-
+def fetch_blocklist_de() -> List[Dict[str, Any]]:
+    """Fetch Blocklist.de's public plain-text list of reported attacking IPs."""
+    url = FEED_URLS["blocklist_de"]
     try:
-        logger.info("Fetching URLhaus: %s", url.replace(auth_key, "***") if auth_key else url)
+        logger.info("Fetching Blocklist.de: %s", url)
         response = requests.get(url, headers=_headers(), timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
-        result = _parse_commented_csv(
-            response.text,
-            [
-                "id", "dateadded", "url", "url_status", "last_online",
-                "threat", "tags", "urlhaus_link", "reporter",
-            ],
-        )
-        logger.info("URLhaus: %d records fetched", len(result))
+        result: List[Dict[str, Any]] = []
+        seen = set()
+        for line in response.text.splitlines():
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            try:
+                address = str(ipaddress.ip_address(value))
+            except ValueError:
+                logger.warning("Blocklist.de: skipping invalid IP address %r", value)
+                continue
+            if address not in seen:
+                seen.add(address)
+                result.append({"ip_address": address})
+        logger.info("Blocklist.de: %d records fetched", len(result))
         return result
     except requests.RequestException as exc:
-        logger.error("URLhaus request failed: %s", exc)
-    except (csv.Error, ValueError, TypeError) as exc:
-        logger.error("URLhaus parse failed: %s", exc)
+        logger.error("Blocklist.de request failed: %s", exc)
     return []
 
 
-def _fetch_malwarebazaar_api(auth_key: str) -> List[Dict[str, Any]]:
-    response = requests.post(
-        FEED_URLS["malwarebazaar_api"],
-        headers={**_headers(), "Auth-Key": auth_key},
-        data={"query": "get_recent", "selector": "100"},
-        timeout=REQUEST_TIMEOUT,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if not isinstance(payload, dict):
-        raise ValueError("unexpected JSON response")
-    status = payload.get("query_status")
-    if status == "no_results":
-        return []
-    if status != "ok":
-        raise ValueError(f"API query_status={status!r}")
-    data = payload.get("data", [])
-    if not isinstance(data, list):
-        raise ValueError("API 'data' is not a list")
-    return data
-
-
-def _fetch_malwarebazaar_legacy() -> List[Dict[str, Any]]:
-    response = requests.get(
-        FEED_URLS["malwarebazaar_legacy"], headers=_headers(), timeout=REQUEST_TIMEOUT
-    )
-    response.raise_for_status()
-    return _parse_commented_csv(
-        response.text,
-        [
-            "first_seen_utc", "sha256_hash", "md5_hash", "sha1_hash",
-            "reporter", "file_name", "file_type_guess", "mime_type",
-            "signature", "clamav", "vtpercent", "imphash", "ssdeep", "tlsh",
-        ],
-    )
-
-
-def fetch_malwarebazaar() -> List[Dict[str, Any]]:
-    """Fetch the latest MalwareBazaar samples using the supported API when keyed."""
-    auth_key = _abusech_auth_key()
+def fetch_openphish() -> List[Dict[str, Any]]:
+    """Fetch OpenPhish's public community phishing URL feed."""
+    url = FEED_URLS["openphish"]
     try:
-        if auth_key:
-            logger.info("Fetching MalwareBazaar via authenticated Community API")
-            result = _fetch_malwarebazaar_api(auth_key)
-        else:
-            logger.warning(
-                "MalwareBazaar: ABUSECH_AUTH_KEY is not set; trying legacy CSV fallback. "
-                "Set a free abuse.ch Auth-Key for the supported API."
-            )
-            result = _fetch_malwarebazaar_legacy()
-        logger.info("MalwareBazaar: %d records fetched", len(result))
+        logger.info("Fetching OpenPhish: %s", url)
+        response = requests.get(url, headers=_headers(), timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        result: List[Dict[str, Any]] = []
+        seen = set()
+        for line in response.text.splitlines():
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            try:
+                parsed = urlsplit(value)
+                if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+                    logger.warning("OpenPhish: skipping invalid URL %r", value)
+                    continue
+            except ValueError:
+                logger.warning("OpenPhish: skipping malformed URL %r", value)
+                continue
+            if value not in seen:
+                seen.add(value)
+                result.append({"url": value})
+        logger.info("OpenPhish: %d records fetched", len(result))
         return result
     except requests.RequestException as exc:
-        logger.error("MalwareBazaar request failed: %s", exc)
-    except (ValueError, csv.Error, TypeError) as exc:
-        logger.error("MalwareBazaar parse/API failed: %s", exc)
+        logger.error("OpenPhish request failed: %s", exc)
     return []
 
 
@@ -233,8 +151,8 @@ def fetch_all_feeds() -> Dict[str, List[Dict[str, Any]]]:
     """Fetch every configured feed independently and return all results."""
     fetch_functions = {
         "feodo": fetch_feodo,
-        "urlhaus": fetch_urlhaus,
-        "malwarebazaar": fetch_malwarebazaar,
+        "blocklist_de": fetch_blocklist_de,
+        "openphish": fetch_openphish,
         "spamhaus": fetch_spamhaus,
     }
     results: Dict[str, List[Dict[str, Any]]] = {}

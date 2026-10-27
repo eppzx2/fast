@@ -26,7 +26,7 @@ def test_health_endpoint_and_security_headers(tmp_path, monkeypatch):
 
 def test_fetch_returns_503_when_all_feeds_are_empty(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
-    empty = {"feodo": [], "urlhaus": [], "malwarebazaar": [], "spamhaus": []}
+    empty = {"feodo": [], "blocklist_de": [], "openphish": [], "spamhaus": []}
     with patch("app.fetchers.fetch_all_feeds", return_value=empty):
         response = client.post("/api/fetch")
     assert response.status_code == 503
@@ -39,7 +39,7 @@ def test_ui_config_exposes_only_non_secret_dashboard_configuration(tmp_path, mon
     monkeypatch.setenv("FAST_WAZUH_DASHBOARD_URL", "https://100.64.0.10")
     monkeypatch.setenv("FAST_PUBLIC_URL", "https://fast-demo.example.ts.net")
     monkeypatch.setenv("FAST_DEPLOYMENT_MODE", "tailscale-funnel")
-    monkeypatch.setenv("ABUSECH_AUTH_KEY", "must-not-leak")
+    monkeypatch.setenv("FAST_SESSION_SECRET", "must-not-leak")
     client = _client(tmp_path, monkeypatch)
 
     response = client.get("/api/ui-config")
@@ -49,7 +49,7 @@ def test_ui_config_exposes_only_non_secret_dashboard_configuration(tmp_path, mon
     assert payload["wazuh_dashboard_url"] == "https://100.64.0.10"
     assert payload["public_url"] == "https://fast-demo.example.ts.net"
     assert payload["deployment_mode"] == "tailscale-funnel"
-    assert "ABUSECH_AUTH_KEY" not in payload
+    assert "FAST_SESSION_SECRET" not in payload
     assert "must-not-leak" not in response.get_data(as_text=True)
 
 
@@ -83,3 +83,34 @@ def test_debug_is_disabled_by_default(monkeypatch):
     assert webapp._env_bool("FAST_WEB_DEBUG", False) is False
     monkeypatch.setenv("FAST_WEB_DEBUG", "1")
     assert webapp._env_bool("FAST_WEB_DEBUG", False) is True
+
+
+def test_stats_reports_replacement_feed_counts(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    rows = [
+        {"ioc_value": "192.0.2.1", "ioc_type": "ip", "source_feed": "blocklist_de", "confidence_score": 25},
+        {"ioc_value": "https://phish.example/", "ioc_type": "url", "source_feed": "openphish", "confidence_score": 25},
+        {"ioc_value": "198.51.100.1", "ioc_type": "ip", "source_feed": "feodo,spamhaus", "confidence_score": 50},
+    ]
+    with patch("app.db.get_all_iocs", return_value=rows):
+        response = client.get("/api/stats")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["by_feed"] == {
+        "feodo": 1,
+        "blocklist_de": 1,
+        "openphish": 1,
+        "spamhaus": 1,
+    }
+
+
+def test_dashboard_uses_replacement_feed_names(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "Blocklist.de" in html
+    assert "OpenPhish" in html
+    assert "Legacy URLhaus" in html
+    assert "Legacy MalwareBazaar" in html

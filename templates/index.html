@@ -300,7 +300,7 @@
       <div class="filters">
         <input class="control" id="searchInput" type="search" placeholder="Search IOC value..." autocomplete="off">
         <select class="control" id="typeFilter"><option value="">All types</option><option value="ip">IP</option><option value="url">URL</option><option value="hash">Hash</option><option value="domain">Domain</option></select>
-        <select class="control" id="feedFilter"><option value="">All feeds</option><option value="feodo">Feodo</option><option value="urlhaus">URLhaus</option><option value="malwarebazaar">MalwareBazaar</option><option value="spamhaus">Spamhaus</option></select>
+        <select class="control" id="feedFilter"><option value="">All feeds</option><option value="feodo">Feodo</option><option value="blocklist_de">Blocklist.de</option><option value="openphish">OpenPhish</option><option value="urlhaus">Legacy URLhaus</option><option value="malwarebazaar">Legacy MalwareBazaar</option><option value="spamhaus">Spamhaus</option></select>
         <select class="control" id="scoreFilter"><option value="0">Any confidence</option><option value="50">50+</option><option value="75">75+</option><option value="100">100 only</option></select>
         <div class="result-count" id="resultCount">—</div>
       </div>
@@ -351,7 +351,7 @@
       <div class="section-head"><div><h2>FAST Architecture</h2><p>How external threat intelligence becomes normalized data and Wazuh detections.</p></div></div>
       <div class="card">
         <div class="architecture">
-          <div class="arch-node"><div class="arch-step">01 · Sources</div><div class="arch-title">Threat Feeds</div><div class="arch-desc">Feodo, URLhaus, MalwareBazaar and Spamhaus provide raw indicators.</div></div>
+          <div class="arch-node"><div class="arch-step">01 · Sources</div><div class="arch-title">Threat Feeds</div><div class="arch-desc">Feodo Tracker, Blocklist.de, OpenPhish and Spamhaus DROP provide raw indicators.</div></div>
           <div class="arch-arrow">→</div>
           <div class="arch-node"><div class="arch-step">02 · Collector</div><div class="arch-title">Normalize & Deduplicate</div><div class="arch-desc">FAST converts provider records into one schema and merges duplicate observations.</div></div>
           <div class="arch-arrow">→</div>
@@ -380,12 +380,16 @@ const pageMeta={
 };
 const feedInfo={
   feodo:{title:"Feodo Tracker",desc:"Botnet command-and-control IPv4 intelligence from abuse.ch."},
-  urlhaus:{title:"URLhaus",desc:"Malicious URL intelligence from the abuse.ch community service."},
-  malwarebazaar:{title:"MalwareBazaar",desc:"Recent malware sample hashes and metadata from abuse.ch."},
+  blocklist_de:{title:"Blocklist.de",desc:"Public IP blocklist of hosts reported for attacks against servers and services."},
+  openphish:{title:"OpenPhish",desc:"Public community feed of verified phishing URLs."},
   spamhaus:{title:"Spamhaus DROP",desc:"High-risk IPv4 network ranges from the Spamhaus DROP dataset."}
 };
 function byId(id){return document.getElementById(id)}
 function number(v){return Number(v||0).toLocaleString()}
+function displayFeedNames(value){
+  const labels={feodo:"Feodo Tracker",blocklist_de:"Blocklist.de",openphish:"OpenPhish",spamhaus:"Spamhaus DROP",urlhaus:"Legacy URLhaus",malwarebazaar:"Legacy MalwareBazaar"};
+  return String(value||"").split(",").map(name=>labels[name.trim()]||name.trim()).filter(Boolean).join(", ");
+}
 function showToast(message,error=false){const el=byId("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(el._timer);el._timer=setTimeout(()=>el.classList.remove("show"),4600)}
 function setDot(el,status){if(!el)return;el.classList.remove("good","bad");if(status===true)el.classList.add("good");if(status===false)el.classList.add("bad")}
 function formatDate(value){if(!value)return "—";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toISOString().slice(0,16).replace("T"," ")+" UTC"}
@@ -430,7 +434,7 @@ function renderPagination(page,totalPages){
 }
 async function loadTable(){
   const params=new URLSearchParams({page:state.page,per_page:state.per_page,type:state.type,feed:state.feed,search:state.search,min_score:state.min_score});const data=await fetchJson("/api/iocs?"+params.toString());const tbody=byId("tableBody");tbody.textContent="";byId("emptyState").style.display=data.items.length?"none":"block";
-  data.items.forEach(ioc=>{const tr=document.createElement("tr");const valueTd=document.createElement("td");const value=document.createElement("span");value.className="ioc-value mono";value.textContent=ioc.ioc_value||"";value.title=ioc.ioc_value||"";valueTd.appendChild(value);const typeTd=document.createElement("td");const type=document.createElement("span");const iocType=String(ioc.ioc_type||"domain").toLowerCase();type.className="tag "+(["ip","url","hash","domain"].includes(iocType)?iocType:"domain");type.textContent=iocType;typeTd.appendChild(type);const feedTd=document.createElement("td");feedTd.className="mono";feedTd.textContent=ioc.source_feed||"";const scoreTd=document.createElement("td");scoreTd.appendChild(confidenceCell(ioc.confidence_score));const dateTd=document.createElement("td");dateTd.className="mono";dateTd.textContent=formatDate(ioc.last_seen);tr.append(valueTd,typeTd,feedTd,scoreTd,dateTd);tbody.appendChild(tr);});
+  data.items.forEach(ioc=>{const tr=document.createElement("tr");const valueTd=document.createElement("td");const value=document.createElement("span");value.className="ioc-value mono";value.textContent=ioc.ioc_value||"";value.title=ioc.ioc_value||"";valueTd.appendChild(value);const typeTd=document.createElement("td");const type=document.createElement("span");const iocType=String(ioc.ioc_type||"domain").toLowerCase();type.className="tag "+(["ip","url","hash","domain"].includes(iocType)?iocType:"domain");type.textContent=iocType;typeTd.appendChild(type);const feedTd=document.createElement("td");feedTd.className="mono";feedTd.textContent=displayFeedNames(ioc.source_feed);const scoreTd=document.createElement("td");scoreTd.appendChild(confidenceCell(ioc.confidence_score));const dateTd=document.createElement("td");dateTd.className="mono";dateTd.textContent=formatDate(ioc.last_seen);tr.append(valueTd,typeTd,feedTd,scoreTd,dateTd);tbody.appendChild(tr);});
   byId("resultCount").textContent=`${number(data.total)} result${data.total===1?"":"s"}`;renderPagination(data.page,data.total_pages);
 }
 async function loadDetections(){

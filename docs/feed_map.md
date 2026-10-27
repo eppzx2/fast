@@ -49,52 +49,45 @@ Mapping:
 
 Records without `ip_address` are skipped.
 
-## URLhaus
+## Blocklist.de
 
-Preferred authenticated Community export when `ABUSECH_AUTH_KEY` is set:
-
-```text
-https://urlhaus-api.abuse.ch/v2/files/exports/<AUTH_KEY>/recent.csv
-```
-
-Compatibility fallback without a key:
+Source:
 
 ```text
-https://urlhaus.abuse.ch/downloads/csv_recent/
+https://lists.blocklist.de/lists/all.txt
 ```
+
+The public feed is plain text with one reported attacking IP address per line. Blank/comment lines, malformed IPs and duplicate addresses are skipped.
 
 Mapping:
 
 | Provider field | FAST field |
 |---|---|
-| `url` | `ioc_value` |
+| line value / `ip_address` | `ioc_value` |
+| fixed | `ioc_type = ip` |
+| fixed | `source_feed = blocklist_de` |
+| collection time | `first_seen`, `last_seen` |
+| fixed | `tags = [blocklist.de]` |
+
+## OpenPhish
+
+Source:
+
+```text
+https://openphish.com/feed.txt
+```
+
+This is OpenPhish's public community phishing URL feed. It is plain text with one URL per line. FAST accepts only HTTP/HTTPS URLs with a hostname and removes duplicates.
+
+Mapping:
+
+| Provider field | FAST field |
+|---|---|
+| line value / `url` | `ioc_value` |
 | fixed | `ioc_type = url` |
-| fixed | `source_feed = urlhaus` |
-| `dateadded` | `first_seen`, `last_seen` |
-| `threat`, comma-separated `tags` | `tags` |
-
-## MalwareBazaar
-
-Preferred API:
-
-```text
-POST https://mb-api.abuse.ch/api/v1/
-Auth-Key: <ABUSECH_AUTH_KEY>
-query=get_recent
-selector=100
-```
-
-Without a key FAST attempts the historical recent CSV compatibility endpoint.
-
-Mapping:
-
-| Provider field | FAST field |
-|---|---|
-| `sha256_hash`, fallback `md5_hash` | `ioc_value` |
-| fixed | `ioc_type = hash` |
-| fixed | `source_feed = malwarebazaar` |
-| `first_seen` or historical `first_seen_utc` | `first_seen`, `last_seen` |
-| `signature`, `file_name`, file type | `tags` |
+| fixed | `source_feed = openphish` |
+| collection time | `first_seen`, `last_seen` |
+| fixed | `tags = [phishing]` |
 
 ## Spamhaus DROP
 

@@ -1,8 +1,10 @@
 """Normalize provider-specific threat-intelligence records into FAST's schema."""
 
+import ipaddress
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -64,75 +66,67 @@ def normalize_feodo(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return normalized
 
 
-def normalize_urlhaus(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def normalize_blocklist_de(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize Blocklist.de IP indicators."""
     normalized: List[Dict[str, Any]] = []
+    now = datetime.now(timezone.utc).isoformat()
+    for raw in raw_iocs:
+        try:
+            value = str(raw.get("ip_address") or "").strip()
+            if not value:
+                logger.warning("Blocklist.de: skipped record without ip_address")
+                continue
+            try:
+                value = str(ipaddress.ip_address(value))
+            except ValueError:
+                logger.warning("Blocklist.de: skipped invalid IP %r", value)
+                continue
+            normalized.append(
+                {
+                    "ioc_value": value,
+                    "ioc_type": "ip",
+                    "source_feed": "blocklist_de",
+                    "first_seen": now,
+                    "last_seen": now,
+                    "tags": ["blocklist.de"],
+                }
+            )
+        except Exception as exc:
+            logger.error("Blocklist.de normalization error (record skipped): %s", exc)
+    logger.info("Blocklist.de: %d/%d records normalized", len(normalized), len(raw_iocs))
+    return normalized
+
+
+def normalize_openphish(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize OpenPhish phishing URL indicators."""
+    normalized: List[Dict[str, Any]] = []
+    now = datetime.now(timezone.utc).isoformat()
     for raw in raw_iocs:
         try:
             value = str(raw.get("url") or "").strip()
             if not value:
-                logger.warning("URLhaus: skipped record without url")
+                logger.warning("OpenPhish: skipped record without url")
                 continue
-            tags: List[str] = []
-            if raw.get("threat"):
-                tags.append(str(raw["threat"]))
-            if raw.get("tags"):
-                tags.extend(
-                    tag.strip()
-                    for tag in str(raw["tags"]).split(",")
-                    if tag.strip()
-                )
-            seen = _parse_date(raw.get("dateadded"))
+            try:
+                parsed = urlsplit(value)
+                if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+                    raise ValueError("URL must use http(s) and include a hostname")
+            except ValueError:
+                logger.warning("OpenPhish: skipped invalid URL %r", value)
+                continue
             normalized.append(
                 {
                     "ioc_value": value,
                     "ioc_type": "url",
-                    "source_feed": "urlhaus",
-                    "first_seen": seen,
-                    "last_seen": seen,
-                    "tags": tags,
+                    "source_feed": "openphish",
+                    "first_seen": now,
+                    "last_seen": now,
+                    "tags": ["phishing"],
                 }
             )
         except Exception as exc:
-            logger.error("URLhaus normalization error (record skipped): %s", exc)
-    logger.info("URLhaus: %d/%d records normalized", len(normalized), len(raw_iocs))
-    return normalized
-
-
-def normalize_malwarebazaar(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    normalized: List[Dict[str, Any]] = []
-    for raw in raw_iocs:
-        try:
-            value = str(raw.get("sha256_hash") or raw.get("md5_hash") or "").strip()
-            if not value:
-                logger.warning("MalwareBazaar: skipped record without hash")
-                continue
-            tags = [
-                str(item)
-                for item in (
-                    raw.get("signature"),
-                    raw.get("file_name"),
-                    raw.get("file_type_guess") or raw.get("file_type"),
-                )
-                if item
-            ]
-            # Current Community API uses first_seen; historical CSV used
-            # first_seen_utc. Support both so the normalizer is provider-version safe.
-            seen = _parse_date(raw.get("first_seen") or raw.get("first_seen_utc"))
-            normalized.append(
-                {
-                    "ioc_value": value,
-                    "ioc_type": "hash",
-                    "source_feed": "malwarebazaar",
-                    "first_seen": seen,
-                    "last_seen": seen,
-                    "tags": tags,
-                }
-            )
-        except Exception as exc:
-            logger.error("MalwareBazaar normalization error (record skipped): %s", exc)
-    logger.info(
-        "MalwareBazaar: %d/%d records normalized", len(normalized), len(raw_iocs)
-    )
+            logger.error("OpenPhish normalization error (record skipped): %s", exc)
+    logger.info("OpenPhish: %d/%d records normalized", len(normalized), len(raw_iocs))
     return normalized
 
 
@@ -165,8 +159,8 @@ def normalize_spamhaus(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def normalize_all(raw_feeds: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
     functions = {
         "feodo": normalize_feodo,
-        "urlhaus": normalize_urlhaus,
-        "malwarebazaar": normalize_malwarebazaar,
+        "blocklist_de": normalize_blocklist_de,
+        "openphish": normalize_openphish,
         "spamhaus": normalize_spamhaus,
     }
     all_normalized: List[Dict[str, Any]] = []

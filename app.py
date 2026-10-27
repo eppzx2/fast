@@ -264,7 +264,7 @@ def get_stats():
     iocs = db.get_all_iocs()
     by_type = {}
     by_score = {"25": 0, "50": 0, "75": 0, "100": 0}
-    feed_counts = {"feodo": 0, "urlhaus": 0, "malwarebazaar": 0, "spamhaus": 0}
+    feed_counts = {"feodo": 0, "blocklist_de": 0, "openphish": 0, "spamhaus": 0}
 
     for ioc in iocs:
         ioc_type = ioc.get("ioc_type", "unknown")

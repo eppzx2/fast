@@ -27,7 +27,7 @@ def calculate_score(ioc: Dict[str, Any]) -> int:
     
     Args:
         ioc (Dict): IOC data ('source_feed' key expected,
-                    e.g. "feodo,urlhaus" or just "feodo")
+                    e.g. "feodo,blocklist_de" or just "feodo")
         
     Returns:
         int: Confidence score (in the range 0-100)

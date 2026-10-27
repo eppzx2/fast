@@ -58,7 +58,6 @@ cp .env.example .env
 Important settings:
 
 ```env
-ABUSECH_AUTH_KEY=
 FAST_WEB_BIND=127.0.0.1
 
 FAST_WAZUH_API_URL=https://wazuh.manager:55000
@@ -69,8 +68,6 @@ FAST_SESSION_SECRET=
 FAST_ADMIN_USER=admin
 FAST_ADMIN_PASSWORD=
 ```
-
-Use a free abuse.ch Auth-Key for current URLhaus/MalwareBazaar Community access.
 
 Keep `.env` out of git.
 

@@ -62,18 +62,11 @@ Wazuh remains the source of truth for agents and alerts. FAST stores IOC data pl
 | Feed | TALON data | Access |
 |---|---|---|
 | Feodo Tracker | botnet C2 IPv4s | public |
-| URLhaus | malicious URLs | abuse.ch Auth-Key preferred; compatibility fallback retained |
-| MalwareBazaar | malware hashes/metadata | free abuse.ch Auth-Key recommended |
+| Blocklist.de | IPs reported for attacks against servers/services | public, no API key |
+| OpenPhish | phishing URLs | public community feed, no API key |
 | Spamhaus DROP | malicious IPv4/CIDR netblocks | public |
 
-Configure local feed credentials:
-
-```bash
-cp .env.example .env
-# set ABUSECH_AUTH_KEY=...
-```
-
-The file is git-ignored.
+No API keys are required for the four configured public threat-intelligence feeds. The optional local `.env` file remains available for other deployment settings and is git-ignored.
 
 ## Collector CLI
 

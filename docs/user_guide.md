@@ -27,19 +27,9 @@ On first use the wrapper can:
 
 You do not need to manually activate the virtualenv.
 
-## Feed credentials
+## Threat intelligence feeds
 
-```bash
-cp .env.example .env
-```
-
-Set:
-
-```env
-ABUSECH_AUTH_KEY=<your-key>
-```
-
-The file is git-ignored.
+FAST uses four public feeds without API keys: Feodo Tracker, Blocklist.de, OpenPhish Community Feed and Spamhaus DROP. See [feed_map.md](feed_map.md) for source URLs and field mappings.
 
 ## CLI commands
 
@@ -260,7 +250,7 @@ The current wrapper checks and repairs the export directory before launching the
 
 ### All feeds fail
 
-Verify network access and `ABUSECH_AUTH_KEY`, then retry `./bin/fast-cli --fetch`.
+Verify outbound network access to the configured public feed URLs, then retry `./bin/fast-cli --fetch`.
 
 For provider-field details, see [feed_map.md](feed_map.md).
 
