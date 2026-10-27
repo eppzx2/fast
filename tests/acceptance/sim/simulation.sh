@@ -8,7 +8,7 @@ set -Eeuo pipefail
 
 TARGET_HOST="$1"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-SIM_DIR="$SCRIPT_DIR/tests/acceptance/sim"
+SIM_DIR="$SCRIPT_DIR/"
 
 echo "[1/2] Starting port scan..."
 "$SIM_DIR/simulate_port_scan.sh" "$TARGET_HOST"
