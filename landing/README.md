@@ -2,7 +2,7 @@
 
 A static, read-only public overview for FAST — Fully Automated SIEM & Threat Intelligence Platform.
 
-The landing page now includes an **Interactive Demo**. The demo is a client-side replay of sanitized sample events and never executes commands, contacts a FAST backend, attacks an endpoint, or changes infrastructure.
+The landing page includes an **Interactive Demo**. The demo is a client-side replay of sanitized sample events and never executes commands, contacts a FAST backend, attacks an endpoint, or changes infrastructure.
 
 ## Deployment
 

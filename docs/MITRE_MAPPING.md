@@ -77,4 +77,4 @@ See:
 - [SIMULATION_GUIDE.md](SIMULATION_GUIDE.md)
 - [runbook.md](runbook.md)
 
-**Last reviewed:** 2026-09-29
+**Reviewed:** 2026-10-29

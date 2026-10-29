@@ -1,6 +1,6 @@
 # FAST IOC Collector User Guide
 
-This guide covers the IOC collector and local web/API behavior on the current `main` branch.
+This guide covers the IOC collector and local web/API behavior on the current `test` branch.
 
 ## Preferred setup: `fast-cli`
 
@@ -29,7 +29,7 @@ You do not need to manually activate the virtualenv.
 
 ## Threat intelligence feeds
 
-FAST uses four public feeds without API keys: Feodo Tracker, Blocklist.de, OpenPhish Community Feed and Spamhaus DROP. See [feed_map.md](feed_map.md) for source URLs and field mappings.
+FAST uses four public feeds without API keys (Feodo Tracker, Blocklist.de, OpenPhish Community Feed, and Spamhaus DROP) plus the optional MalwareBazaar hash feed, which requires a free Auth-Key. Configure it as `ABUSECH_AUTH_KEY` in `.env`. See [feed_map.md](feed_map.md) for source URLs and field mappings.
 
 ## CLI commands
 
@@ -122,7 +122,7 @@ Scoring:
 1 feed  = 25
 2 feeds = 50
 3 feeds = 75
-4 feeds = 100
+4 or more feeds = 100
 ```
 
 Timestamps are normalized to UTC ISO-8601.
@@ -254,4 +254,4 @@ Verify outbound network access to the configured public feed URLs, then retry `.
 
 For provider-field details, see [feed_map.md](feed_map.md).
 
-**Last reviewed:** 2026-09-30
+**Reviewed:** 2026-10-29

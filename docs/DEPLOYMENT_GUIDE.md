@@ -1,6 +1,6 @@
 # FAST Deployment Guide
 
-This guide covers a clean deployment of FAST on the current `main` branch.
+This guide covers a clean deployment of FAST on the current `test` branch.
 
 ## Recommended lab topology
 
@@ -40,13 +40,11 @@ git --version
 python3 --version
 ```
 
-## 1. Clone main
+## 1. Clone the test branch
 
 ```bash
-git clone https://github.com/eppzx2/fast.git fast
+git clone --branch test https://github.com/eppzx2/fast.git fast
 cd fast
-git checkout main
-git pull --ff-only origin main
 ```
 
 ## 2. Configure local environment
@@ -238,7 +236,7 @@ Run on the Linux target:
 
 ```bash
 cd ~/fast
-git pull --ff-only origin main
+git pull --ff-only origin test
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
 
@@ -356,7 +354,7 @@ rm -rf wazuh-docker
 
 Do not use the destructive reset merely to refresh IOCs or repair TLS.
 
-**Last reviewed:** 2026-09-30
+**Reviewed:** 2026-10-29
 
 ## Automatic Docker storage cleanup
 

@@ -1,6 +1,6 @@
 # FAST Security Operations
 
-This document describes the security-operations layer implemented on the current `main` branch.
+This document describes the security-operations layer implemented on the current `test` branch.
 
 ## Design principle
 
@@ -122,13 +122,7 @@ FAST stores only analyst-owned metadata in `fast_operations.db`:
 
 The Wazuh alert remains unchanged.
 
-The save workflow provides visible feedback:
-
-```text
-Saving... -> Saved ✓
-```
-
-and updates the row in place without collapsing the open incident.
+On a successful save, the open incident collapses back to its compact row. If saving fails, the form stays available and displays the error.
 
 Relevant route:
 
@@ -249,10 +243,10 @@ Current deploy/web container ownership handling is designed so host-side FAST to
 
 ```bash
 cd ~/fast
-git checkout main
-git pull --ff-only origin main
+git checkout test
+git pull --ff-only origin test
 ./bin/fast restart
 ./bin/fast status
 ```
 
-**Last reviewed:** 2026-09-30
+**Reviewed:** 2026-10-29

@@ -197,7 +197,7 @@ Run on the Linux target:
 
 ```bash
 cd ~/fast
-git pull --ff-only origin main
+git pull --ff-only origin test
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
 
@@ -279,4 +279,4 @@ Tune thresholds only with observed environment data.
 - Validate every rule change with `wazuh-analysisd -t` before Manager restart.
 - Update `core/detections.py`, tests and documentation whenever primary rule IDs or semantics change.
 
-**Last reviewed:** 2026-09-30
+**Reviewed:** 2026-10-29

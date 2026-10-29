@@ -1,6 +1,6 @@
 # FAST UI and Tailscale Deployment
 
-This guide describes the final UI deployment model on `main`.
+This guide describes the UI deployment model on `test`.
 
 ## 1. Start FAST
 
@@ -153,4 +153,4 @@ tailscale serve status
 
 Tailscale Funnel requires the relevant tailnet HTTPS/Funnel permissions.
 
-**Last reviewed:** 2026-09-29
+**Reviewed:** 2026-10-29

@@ -26,7 +26,7 @@ Confidence is recalculated from the number of distinct feeds observing the same 
 1 feed  -> 25
 2 feeds -> 50
 3 feeds -> 75
-4 feeds -> 100
+4 or more feeds -> 100
 ```
 
 ## Feodo Tracker
@@ -202,4 +202,4 @@ Current deploy/refresh paths run the collector using the host UID/GID so generat
 
 The `fast-cli` wrapper also repairs legacy root-owned database/export files before running the CLI.
 
-**Last reviewed:** 2026-09-29
+**Reviewed:** 2026-10-29

@@ -15,8 +15,8 @@ The browser never launches these simulations.
 
 ```bash
 cd ~/fast
-git checkout main
-git pull --ff-only origin main
+git checkout test
+git pull --ff-only origin test
 ./bin/fast up
 ./bin/fast status
 ```
@@ -43,8 +43,8 @@ Run on the Target:
 
 ```bash
 cd ~/fast
-git checkout main
-git pull --ff-only origin main
+git checkout test
+git pull --ff-only origin test
 sudo ./tests/acceptance/sim/setup_prereqs.sh
 ```
 
@@ -186,7 +186,7 @@ This is expected behavior.
 
 ## 6. Detection Validation UI
 
-After each simulation, open the FAST Detection Validation view.
+After each simulation, open **Architecture** and review the Detection Validation section.
 
 Expected final rules:
 
@@ -238,4 +238,4 @@ They are intentionally excluded from normal GitHub Actions because they require 
 
 See [runbook.md](runbook.md) for detection-engineering details and analyst response guidance.
 
-**Last reviewed:** 2026-09-30
+**Reviewed:** 2026-10-29
