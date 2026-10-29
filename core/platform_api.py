@@ -257,15 +257,38 @@ def register_platform_routes(app) -> None:
         try:
             minutes = min(10080, max(30, int(request.args.get("minutes", 1440))))
             limit = min(500, max(1, int(request.args.get("limit", 300))))
+            min_level = min(15, max(0, int(request.args.get("min_level", 0))))
         except (TypeError, ValueError):
-            minutes, limit = 1440, 300
+            minutes, limit, min_level = 1440, 300, 0
+        agent_id = request.args.get("agent_id", "").strip()[:64]
+        rule_id = request.args.get("rule_id", "").strip()[:32]
+        group = request.args.get("group", "").strip()[:64]
+        search = request.args.get("q", "").strip()[:120]
         try:
-            alerts = get_wazuh_client().recent_alerts(
-                rule_ids=FAST_RULE_IDS, limit=limit, minutes=minutes
+            client = get_wazuh_client()
+            alerts = client.recent_alerts(
+                rule_ids=None,
+                limit=limit,
+                minutes=minutes,
+                min_level=min_level,
+                agent_id=agent_id,
+                rule_id=rule_id,
+                group=group,
+                search=search,
             )
             enriched_alerts = [enrich_alert(item) for item in alerts.get("items", [])]
             cases = build_incident_cases(enriched_alerts)
-            correlations = correlate_alerts(enriched_alerts, window_minutes=60)
+            # Preserve the existing correlation scope and completeness while
+            # showing the broader all-Wazuh alert list above.
+            fast_alerts = client.recent_alerts(
+                rule_ids=FAST_RULE_IDS,
+                limit=min(limit, 500),
+                minutes=minutes,
+            )
+            canonical_alerts = [
+                enrich_alert(item) for item in fast_alerts.get("items", [])
+            ]
+            correlations = correlate_alerts(canonical_alerts, window_minutes=60)
             return jsonify(
                 {
                     "status": "ok",
@@ -274,7 +297,15 @@ def register_platform_routes(app) -> None:
                     "total": alerts.get("total", len(cases)),
                     "sampled": bool(alerts.get("sampled")),
                     "correlations": correlations,
-                    "correlation_note": "Correlation groups only real FAST alert documents; it does not synthesize Wazuh alerts.",
+                    "filters": {
+                        "minutes": minutes,
+                        "min_level": min_level,
+                        "agent_id": agent_id,
+                        "rule_id": rule_id,
+                        "group": group,
+                        "q": search,
+                    },
+                    "correlation_note": "Correlation groups canonical FAST alert documents only; it does not synthesize Wazuh alerts.",
                 }
             )
         except WazuhIntegrationError as exc:
@@ -287,7 +318,12 @@ def register_platform_routes(app) -> None:
         payload = request.get_json(silent=True) or {}
         try:
             client = get_wazuh_client()
-            recent = client.recent_alerts(rule_ids=FAST_RULE_IDS, limit=500, minutes=10080)
+            recent = client.recent_alerts(
+                rule_ids=None,
+                limit=1,
+                minutes=10080,
+                event_id=event_id,
+            )
             matching = next((item for item in recent.get("items", []) if str(item.get("event_id")) == event_id), None)
             existing = get_incident_states([event_id]).get(event_id, {})
             if not matching and not existing:

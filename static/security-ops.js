@@ -7,6 +7,7 @@
   const rank = {viewer:10, analyst:20, admin:30};
   let selectedCaseId = "";
   let incidentItems = [];
+  let incidentFilters = { minutes: 1440, minLevel: 0, q: "" };
 
   const text = (v) => String(v ?? "");
   const html = (v) => text(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -73,13 +74,25 @@
   function installIncidents(){
     if($("view-incidents")) return; const main=document.querySelector("main.main"); if(!main) return;
     const s=document.createElement("section"); s.className="view"; s.id="view-incidents";
-    s.innerHTML=`<div class="section-head"><div><h2>Incident Workflow</h2><p>Real Wazuh detections with expandable alert context and analyst workflow state.</p></div><button class="btn" id="refreshIncidents">Refresh</button></div>
-    <div class="ops-metrics"><div class="card ops-metric"><span>Open</span><strong id="incOpen">0</strong></div><div class="card ops-metric"><span>Critical / High</span><strong id="incHigh">0</strong></div><div class="card ops-metric"><span>Correlations</span><strong id="incCorr">0</strong></div></div>
-    <div class="card table-card incident-card"><div class="card-head padded-head"><div><div class="card-kicker">Real Wazuh detections</div><div class="card-title">Detection Cases</div></div><span class="live-badge" id="incBadge">LIVE</span></div><div class="table-scroll"><table id="incidentTable"><thead><tr><th>Time</th><th>Detection</th><th>Agent</th><th>Source</th><th>Priority</th><th>Status</th><th>Assignee</th><th></th></tr></thead><tbody id="incBody"></tbody></table><div class="platform-empty" id="incEmpty">No FAST detection cases.</div></div></div>
-    <div class="card" style="margin-top:16px"><div class="card-head"><div><div class="card-kicker">Correlation engine</div><div class="card-title">Related Activity</div></div><span class="live-badge">REAL ALERTS ONLY</span></div><div id="corrList" class="correlation-list"></div></div>`;
-    main.insertBefore(s,$("view-detections")); $("refreshIncidents").onclick=loadIncidents;
+    s.innerHTML=`<div class="section-head"><div><h2>Incident Workflow</h2><p>All indexed Wazuh alerts, including FAST custom detections, with analyst workflow state.</p></div><button class="btn" id="refreshIncidents">Refresh</button></div>
+    <div class="ops-metrics"><div class="card ops-metric"><span>Open</span><strong id="incOpen">0</strong></div><div class="card ops-metric"><span>Critical / High</span><strong id="incHigh">0</strong></div><div class="card ops-metric"><span>FAST Correlations</span><strong id="incCorr">0</strong></div></div>
+    <div class="incident-filter-bar">
+      <label class="incident-filter">Time range<select class="control" id="incMinutes"><option value="60">Last hour</option><option value="1440" selected>Last 24 hours</option><option value="10080">Last 7 days</option></select></label>
+      <label class="incident-filter">Minimum level<select class="control" id="incMinLevel"><option value="0">All levels</option><option value="7">7+</option><option value="10">10+</option><option value="12">12+</option></select></label>
+      <label class="incident-filter">Agent ID<input class="control" id="incAgentId" maxlength="64" placeholder="Any agent"></label>
+      <label class="incident-filter">Rule ID<input class="control" id="incRuleId" maxlength="32" placeholder="Any rule"></label>
+      <label class="incident-filter">Rule group<input class="control" id="incGroup" maxlength="64" placeholder="Any group"></label>
+      <label class="incident-filter incident-search">Search<input class="control" id="incSearch" type="search" maxlength="120" placeholder="Description, IP, host…"></label>
+      <button class="btn btn-primary" id="applyIncFilters">Apply filters</button>
+    </div>
+    <div class="card table-card incident-card"><div class="card-head padded-head"><div><div class="card-kicker">All indexed Wazuh alerts</div><div class="card-title">Security Incidents</div></div><span class="live-badge" id="incBadge">LIVE</span></div><div class="table-scroll"><table id="incidentTable"><thead><tr><th>Time</th><th>Detection / Rule</th><th>Agent</th><th>Source</th><th>Priority</th><th>Status</th><th>Assignee</th><th></th></tr></thead><tbody id="incBody"></tbody></table><div class="platform-empty" id="incEmpty">No Wazuh alerts match the selected filters.</div></div></div>
+    <div class="card" style="margin-top:16px"><div class="card-head"><div><div class="card-kicker">FAST detection correlation</div><div class="card-title">Related Activity</div></div><span class="live-badge">FAST RULES</span></div><div id="corrList" class="correlation-list"></div></div>`;
+    main.insertBefore(s,$("view-detections"));
+    const applyFilters=()=>{incidentFilters={minutes:Number($("incMinutes").value)||1440,minLevel:Number($("incMinLevel").value)||0,agentId:$("incAgentId").value.trim(),ruleId:$("incRuleId").value.trim(),group:$("incGroup").value.trim(),q:$("incSearch").value.trim()};selectedCaseId="";loadIncidents();};
+    $("refreshIncidents").onclick=loadIncidents;
+    $("applyIncFilters").onclick=applyFilters;
+    $("incSearch").addEventListener("keydown",event=>{if(event.key==="Enter")applyFilters();});
   }
-
   function caseDetailMarkup(item){
     const detail=(label,value,mono=false,wide=false)=>value===null||value===undefined||String(value).trim()===""?"":`<div class="case-detail${wide?" wide":""}"><span>${html(label)}</span><strong class="${mono?"mono":""}">${html(value)}</strong></div>`;
     const mitreIds=(item.mitre_ids||[]).join(", ");
@@ -91,7 +104,7 @@
     return `<div class="incident-detail-shell">
       <div class="case-summary">
         <div class="case-headline">
-          <div><strong>${html(item.attack_type||"FAST detection")}</strong>${ruleTime?`<span class="case-rule-line">${ruleTime}</span>`:""}</div>
+          <div><strong>${html(item.attack_type||"Wazuh alert")}</strong>${ruleTime?`<span class="case-rule-line">${ruleTime}</span>`:""}</div>
           <span class="priority ${html(item.priority||"low")}">${html(item.priority||"low")}</span>
         </div>
         ${item.description?`<p class="case-description">${html(item.description)}</p>`:""}
@@ -103,7 +116,10 @@
           ${detail("Destination IP",item.destination_ip,true)}
           ${detail("Destination Port",item.destination_port,true)}
           ${detail("Rule ID",item.rule_id,true)}
+          ${detail("Rule Source",item.rule_source)}
+          ${detail("Rule Groups",(item.groups||[]).join(", "),false,true)}
           ${detail("Severity / Level",item.level,true)}
+          ${Object.entries(item.event_context||{}).map(([label,value])=>detail(label,value,false,true)).join("")}
           ${detail("Process",item.process_name,true)}
           ${detail("Executable",item.process_executable,true,true)}
           ${detail("MITRE Tactic",mitreTactics,false,true)}
@@ -149,7 +165,7 @@
       const eventId=String(item.event_id||"");
       const expanded=selectedCaseId===eventId;
       const tr=document.createElement("tr"); tr.className="incident-row"+(expanded?" expanded":""); tr.dataset.eventId=eventId;
-      const cols=[when(item.timestamp),item.attack_type||"FAST detection",item.agent_name||item.agent_id||"Unknown",item.source_ip||"—"];
+      const cols=[when(item.timestamp),item.attack_type||"Wazuh alert",item.agent_name||item.agent_id||"Unknown",item.source_ip||"—"];
       cols.forEach((v,i)=>{const td=document.createElement("td"); if(i===0||i===3)td.className="mono"; td.textContent=text(v); tr.appendChild(td);});
       const pr=document.createElement("td"); pr.innerHTML=`<span class="priority ${html(item.priority)}">${html(item.priority)}</span>`;
       const st=document.createElement("td"); st.className="incident-status-cell"; st.innerHTML=`<span class="case-status ${html(item.status)}">${html(item.status).replace("_"," ")}</span>`;
@@ -203,10 +219,14 @@
   }
 
   async function loadIncidents(){
-    try{const data=await api("/api/security/incidents?minutes=1440&limit=300",{cache:"no-store"}); renderIncidents(data.items||[]); renderCorrelations(data.correlations||[]); $("incBadge").textContent=data.sampled?"WAZUH LIVE · SAMPLED":"WAZUH LIVE"; $("incBadge").className="live-badge ok";}
+    const params=new URLSearchParams({minutes:String(incidentFilters.minutes),limit:"300",min_level:String(incidentFilters.minLevel)});
+    if(incidentFilters.agentId)params.set("agent_id",incidentFilters.agentId);
+    if(incidentFilters.ruleId)params.set("rule_id",incidentFilters.ruleId);
+    if(incidentFilters.group)params.set("group",incidentFilters.group);
+    if(incidentFilters.q)params.set("q",incidentFilters.q);
+    try{const data=await api(`/api/security/incidents?${params.toString()}`,{cache:"no-store"});renderIncidents(data.items||[]);renderCorrelations(data.correlations||[]);$("incBadge").textContent=data.sampled?"WAZUH LIVE · SAMPLED":"WAZUH LIVE";$("incBadge").className="live-badge ok";}
     catch(e){renderIncidents([]);renderCorrelations([]);$("incEmpty").style.display="block";$("incEmpty").textContent=`Incidents unavailable: ${e.message}`;$("incBadge").textContent="UNAVAILABLE";$("incBadge").className="live-badge bad";}
   }
-
   function installValidation(){
     const view=$("view-architecture"); if(!view||$("detectionFlowSection"))return;
     const section=document.createElement("section"); section.id="detectionFlowSection"; section.className="architecture-section";

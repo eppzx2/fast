@@ -63,15 +63,11 @@ When authentication is disabled, FAST behaves as a local admin session for backw
 
 ## 2. Incident workflow
 
-Incidents are built from real FAST rule alerts stored in the Wazuh Indexer.
+The Incidents list reads real alert documents from the Wazuh Indexer’s `wazuh-alerts-*` indices. It includes alerts produced by Wazuh’s built-in ruleset and FAST custom rules.
 
-Default incident rule set:
+By default it searches the last 24 hours and returns up to 300 newest alerts. The API supports a 1-hour, 24-hour, or 7-day time window, minimum rule level, agent ID, exact rule ID, rule group, and text search. A sampled result means more alerts matched than the current response limit.
 
-```text
-100200  SSH brute force
-100211  Port scan
-100221  LOLBin / masquerading
-```
+FAST’s canonical detection catalogue remains `100200` (SSH brute force), `100211` (port scan), and `100221` (LOLBin / masquerading). Detection health, validation, MITRE coverage, and the existing correlation panel remain scoped to those three rules.
 
 The Incidents table expands inline. Selecting `Open` adds an expandable detail row directly below the alert instead of opening a detached side panel.
 
@@ -136,7 +132,7 @@ The backend validates that the event exists in the searchable Wazuh window or al
 
 `/api/security/incidents` also returns conservative correlation findings.
 
-FAST groups existing real alert documents by:
+FAST groups existing real alerts from its three canonical detection rules by:
 
 - asset;
 - source;

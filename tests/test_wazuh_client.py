@@ -145,3 +145,62 @@ def test_local_lolbin_uses_agent_ip_as_source_context(monkeypatch):
     assert alert["source_ip"] == "100.90.0.15"
     assert alert["source_ip_origin"] == "agent"
     assert alert["agent_ip"] == "100.90.0.15"
+
+
+
+def test_recent_alerts_can_query_all_wazuh_rules_with_filters(monkeypatch):
+    monkeypatch.setenv("FAST_WAZUH_INDEXER_URL", "https://indexer:9200")
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "hits": {
+                        "total": {"value": 1, "relation": "eq"},
+                        "hits": [
+                            {
+                                "_id": "windows-alert-1",
+                                "_source": {
+                                    "timestamp": "2026-10-29T12:05:00Z",
+                                    "rule": {
+                                        "id": "61603",
+                                        "level": 10,
+                                        "description": "Sysmon: Suspicious PowerShell execution",
+                                        "groups": ["windows", "sysmon"],
+                                        "mitre": {"id": ["T1059.001"], "tactic": ["Execution"]},
+                                    },
+                                    "agent": {"id": "001", "name": "workstation", "ip": "192.0.2.10"},
+                                    "data": {
+                                        "win": {
+                                            "system": {"eventID": "1", "providerName": "Microsoft-Windows-Sysmon", "channel": "Microsoft-Windows-Sysmon/Operational"},
+                                            "eventdata": {"commandLine": "powershell -enc ...", "image": "powershell.exe", "parentImage": "winword.exe", "targetUserName": "analyst"},
+                                        }
+                                    },
+                                    "full_log": "Process creation event",
+                                },
+                            }
+                        ],
+                    }
+                }
+            )
+        ]
+    )
+    client = WazuhClient(session=session)
+    result = client.recent_alerts(
+        rule_ids=None, limit=20, minutes=60, min_level=7, agent_id="001", rule_id="61603", group="sysmon", search="powershell"
+    )
+
+    query = session.calls[0][2]["json"]
+    filters = query["query"]["bool"]["filter"]
+    assert len(filters) == 6
+    assert filters[0] == {"range": {"timestamp": {"gte": "now-60m"}}}
+    assert filters[1] == {"range": {"rule.level": {"gte": 7}}}
+    assert filters[2] == {"term": {"agent.id": "001"}}
+    assert filters[3] == {"term": {"rule.id": "61603"}}
+    assert filters[4] == {"term": {"rule.groups": "sysmon"}}
+    assert filters[5]["simple_query_string"]["query"] == "powershell"
+    assert not any("terms" in clause for clause in filters)
+    item = result["items"][0]
+    assert item["attack_type"] == "Sysmon: Suspicious PowerShell execution"
+    assert item["rule_source"] == "Wazuh rule"
+    assert item["event_context"]["Windows Event ID"] == "1"
+    assert item["event_context"]["Command Line"] == "powershell -enc ..."

@@ -37,13 +37,19 @@ Displays normalized indicators collected from configured threat feeds. This incl
 
 ### Incidents
 
-Shows matching real Wazuh alerts for the primary FAST detection rules:
+Shows real alerts from the Wazuh Indexer’s `wazuh-alerts-*` indices, including built-in Wazuh rules and FAST custom rules. By default it requests the latest 24 hours and the newest 300 results. If more alerts match, the UI marks the result as sampled.
+
+Filter by time range (1 hour, 24 hours, or 7 days), minimum Wazuh rule level, agent ID, exact rule ID, rule group, or text search. Text search covers alert descriptions, rule groups, agent identifiers/names, source/destination IPs, and raw log text.
+
+The canonical FAST detection catalogue remains the three validated rules:
 
 ```text
 100200  SSH brute force
 100211  Port scan
 100221  LOLBin / masquerading
 ```
+
+That catalogue continues to drive FAST-specific detection health, validation, MITRE coverage, and correlation.
 
 Click **Open** to expand an incident inline. The expanded view only shows fields present in the alert, so unavailable values do not appear as empty fields. Relevant context may include timestamp, rule and level, agent, source/destination addresses and ports, process details, ATT&CK mapping, decoder, Manager, and raw event.
 

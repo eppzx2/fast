@@ -12,3 +12,11 @@
 @media(max-width:760px){.case-workflow-grid{grid-template-columns:1fr}.incident-detail-shell{padding:13px 10px 15px}.case-save-row{align-items:flex-start;flex-direction:column}.case-save-row .case-save{width:100%}}
 
 .architecture-section{margin-top:24px}.architecture-section .section-head{margin-bottom:14px}.architecture-section .system-grid{margin-top:0}
+
+.incident-filter-bar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.incident-filter{display:grid;gap:6px;min-width:150px;color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.65px}
+.incident-filter .control{width:100%;min-height:38px}
+.incident-search{flex:1;min-width:220px}
+@media(max-width:760px){.incident-filter-bar{align-items:stretch}.incident-filter,.incident-search{width:100%;min-width:100%}.incident-filter-bar>#applyIncFilters{width:100%}}
+
+.incident-filter{min-width:125px}.incident-search{min-width:190px}

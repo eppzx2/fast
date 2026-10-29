@@ -14,11 +14,23 @@ import requests
 
 
 FAST_RULE_IDS = ("100200", "100211", "100221")
+FAST_CUSTOM_RULE_IDS = frozenset(
+    {"100101", "100102", "100199", "100200", "100210", "100211", "100220", "100221"}
+)
 ATTACK_TYPES = {
     "100200": "SSH brute-force",
     "100211": "Port scan",
     "100221": "LOLBin / masquerading",
 }
+
+
+def _nested_value(value: dict, path: tuple[str, ...]):
+    current = value
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
 
 
 class WazuhIntegrationError(RuntimeError):
@@ -141,28 +153,75 @@ class WazuhClient:
     def recent_alerts(
         self,
         *,
-        rule_ids: Iterable[str] = FAST_RULE_IDS,
+        rule_ids: Iterable[str] | None = FAST_RULE_IDS,
         limit: int = 30,
         minutes: int = 30,
+        min_level: int | None = None,
+        agent_id: str = "",
+        rule_id: str = "",
+        group: str = "",
+        search: str = "",
+        event_id: str = "",
     ) -> dict:
-        """Return recent real FAST alerts from wazuh-alerts-* in the Indexer."""
+        """Return recent Wazuh alerts from the Indexer.
+
+        Passing rule_ids=None searches all indexed alerts. The default remains
+        FAST_RULE_IDS so existing FAST-specific views keep their exact scope.
+        """
         limit = max(1, min(500, int(limit)))
         minutes = max(1, min(10080, int(minutes)))
-        selected_rules = [str(rule_id) for rule_id in rule_ids if str(rule_id)]
-        if not selected_rules:
+        selected_rules = (
+            [str(rule_id) for rule_id in rule_ids if str(rule_id)]
+            if rule_ids is not None
+            else None
+        )
+        if selected_rules is not None and not selected_rules:
             selected_rules = list(FAST_RULE_IDS)
+
+        filters = [{"range": {"timestamp": {"gte": f"now-{minutes}m"}}}]
+        if selected_rules is not None:
+            filters.append({"terms": {"rule.id": selected_rules}})
+        if min_level is not None and int(min_level) > 0:
+            filters.append({"range": {"rule.level": {"gte": max(0, min(15, int(min_level)))}}})
+        if agent_id:
+            filters.append({"term": {"agent.id": str(agent_id)[:64]}})
+        if rule_id:
+            filters.append({"term": {"rule.id": str(rule_id)[:32]}})
+        if group:
+            filters.append({"term": {"rule.groups": str(group)[:64]}})
+        if event_id:
+            filters.append({"ids": {"values": [str(event_id)[:256]]}})
+        if search:
+            filters.append(
+                {
+                    "simple_query_string": {
+                        "query": str(search)[:120],
+                        "fields": [
+                            "rule.id",
+                            "rule.description",
+                            "rule.groups",
+                            "agent.name",
+                            "agent.id",
+                            "data.srcip",
+                            "data.dstip",
+                            "data.srcuser",
+                            "data.dstuser",
+                            "data.url",
+                            "data.win.eventdata.commandLine",
+                            "data.win.eventdata.image",
+                            "data.win.eventdata.parentImage",
+                            "full_log",
+                        ],
+                        "default_operator": "and",
+                        "lenient": True,
+                    }
+                }
+            )
 
         query = {
             "size": limit,
             "sort": [{"timestamp": {"order": "desc", "unmapped_type": "date"}}],
-            "query": {
-                "bool": {
-                    "filter": [
-                        {"range": {"timestamp": {"gte": f"now-{minutes}m"}}},
-                        {"terms": {"rule.id": selected_rules}},
-                    ]
-                }
-            },
+            "query": {"bool": {"filter": filters}},
             "_source": [
                 "timestamp",
                 "rule.id",
@@ -184,6 +243,23 @@ class WazuhClient:
                 "data.dst_ip",
                 "data.srcport",
                 "data.dstport",
+                "data.srcuser",
+                "data.dstuser",
+                "data.protocol",
+                "data.action",
+                "data.url",
+                "data.file",
+                "data.sha256",
+                "data.win.system.eventID",
+                "data.win.system.providerName",
+                "data.win.system.channel",
+                "data.win.eventdata.subjectUserName",
+                "data.win.eventdata.targetUserName",
+                "data.win.eventdata.ipAddress",
+                "data.win.eventdata.commandLine",
+                "data.win.eventdata.image",
+                "data.win.eventdata.parentImage",
+                "data.win.eventdata.processId",
                 "data.command",
                 "data.exe",
                 "audit.command",
@@ -230,7 +306,16 @@ class WazuhClient:
                 {
                     "event_id": hit.get("_id") or "",
                     "timestamp": source.get("timestamp") or "",
-                    "attack_type": ATTACK_TYPES.get(rule_id, "FAST detection"),
+                    "attack_type": (
+                        ATTACK_TYPES.get(rule_id)
+                        or rule.get("description")
+                        or "Wazuh alert"
+                    ),
+                    "rule_source": (
+                        "FAST custom"
+                        if rule_id in FAST_CUSTOM_RULE_IDS
+                        else "Wazuh rule"
+                    ),
                     "rule_id": rule_id,
                     "level": rule.get("level"),
                     "description": rule.get("description") or "",
@@ -264,6 +349,24 @@ class WazuhClient:
                     "decoder": (source.get("decoder") or {}).get("name") or "",
                     "manager": (source.get("manager") or {}).get("name") or "",
                     "full_log": source.get("full_log") or "",
+                    "event_context": {
+                        label: str(value)
+                        for label, value in (
+                            ("Windows Event ID", _nested_value(event_data, ("win", "system", "eventID"))),
+                            ("Event Provider", _nested_value(event_data, ("win", "system", "providerName"))),
+                            ("Event Channel", _nested_value(event_data, ("win", "system", "channel"))),
+                            ("User", event_data.get("dstuser") or event_data.get("srcuser") or _nested_value(event_data, ("win", "eventdata", "targetUserName")) or _nested_value(event_data, ("win", "eventdata", "subjectUserName"))),
+                            ("Command Line", _nested_value(event_data, ("win", "eventdata", "commandLine"))),
+                            ("Image", _nested_value(event_data, ("win", "eventdata", "image"))),
+                            ("Parent Image", _nested_value(event_data, ("win", "eventdata", "parentImage"))),
+                            ("Protocol", event_data.get("protocol")),
+                            ("Action", event_data.get("action")),
+                            ("URL", event_data.get("url")),
+                            ("File", event_data.get("file")),
+                            ("SHA-256", event_data.get("sha256")),
+                        )
+                        if value is not None and str(value).strip()
+                    },
                 }
             )
 
@@ -279,7 +382,7 @@ class WazuhClient:
             "total": total,
             "sampled": total > len(items),
             "window_minutes": minutes,
-            "rule_ids": selected_rules,
+            "rule_ids": selected_rules or [],
         }
 
     def rule_activity(
