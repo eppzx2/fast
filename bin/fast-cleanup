@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Bound deploy-generated Docker cache without deleting FAST data.
+set -uo pipefail
+
+if ! docker info >/dev/null 2>&1; then
+    echo "[FAST] Docker cleanup skipped: daemon is unavailable." >&2
+    exit 0
+fi
+
+echo "[FAST] Removing dangling Docker images..."
+if ! docker image prune --force; then
+    echo "[FAST] WARNING: dangling image cleanup failed; deployment can continue." >&2
+fi
+
+echo "[FAST] Removing Docker build cache older than 7 days..."
+if ! docker builder prune --force --filter "until=168h"; then
+    echo "[FAST] WARNING: build cache cleanup failed; deployment can continue." >&2
+fi
+
+# This script deliberately never prunes containers or volumes.
