@@ -357,3 +357,9 @@ rm -rf wazuh-docker
 Do not use the destructive reset merely to refresh IOCs or repair TLS.
 
 **Last reviewed:** 2026-09-30
+
+## Automatic Docker storage cleanup
+
+Each `./bin/fast up` run removes dangling Docker images and build cache older than seven days. FAST and Wazuh container stdout logs are rotated at 10 MB, with up to three files per container.
+
+This cleanup does not remove containers, named volumes, the IOC database, or Wazuh index data. Persistent security data is preserved. New unique IOCs and new Wazuh events can still increase those data stores over time; automatic expiration for that data is intentionally not enabled.
