@@ -211,6 +211,9 @@ cmd_up() {
     fi
 
     echo ""
+    echo "[1c/2] Cleaning stale Docker build artifacts (persistent data is preserved)..."
+    bash "$PROJECT_ROOT/bin/fast-cleanup"
+
     echo "[2/2] Verifying services..."
     echo ""
     local status_rc=0
