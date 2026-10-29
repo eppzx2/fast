@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#050908">
-  <meta name="description" content="FAST interactive read-only demonstration — replay threat intelligence and security detection workflows.">
+  <meta name="theme-color" content="#06141B">
+  <meta name="description" content="FAST interactive read-only demo: replay detection scenarios or preview the one-command ./bin/fast up deployment flow without executing it.">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <title>FAST — Interactive Demo</title>
   <link rel="stylesheet" href="styles.css">
@@ -21,8 +21,8 @@
     <section class="intro">
       <div>
         <div class="eyebrow">FAST / INTERACTIVE DEMO</div>
-        <h1>See how a signal becomes an <span>incident.</span></h1>
-        <p>Replay sanitized FAST event data and watch the collection, detection, MITRE mapping and incident workflow unfold step by step.</p>
+        <h1>Replay a detection. Preview a <span>FAST deployment.</span></h1>
+        <p>Replay sanitized detection events or watch a short visual preview of ./bin/fast up. The preview does not execute commands or change infrastructure.</p>
       </div>
       <div class="safe-badge"><strong>SAFE MODE</strong><span>No commands execute · No infrastructure changes · No external requests</span></div>
     </section>
@@ -37,8 +37,8 @@
       <button class="scenario" data-scenario="lolbin">
         <span class="scenario-index">03</span><span class="scenario-icon">◈</span><span class="scenario-kicker">DETECTION REPLAY</span><strong>LOLBIN / Masquerading</strong><span class="scenario-meta">Rule 100221 · T1036.003</span><span class="scenario-run">Run replay <b>→</b></span>
       </button>
-      <button class="scenario" data-scenario="ioc">
-        <span class="scenario-index">04</span><span class="scenario-icon">◎</span><span class="scenario-kicker">INTELLIGENCE REPLAY</span><strong>IOC Feed Update</strong><span class="scenario-meta">TALON · SQLite · CDB</span><span class="scenario-run">Run replay <b>→</b></span>
+      <button class="scenario" data-scenario="deploy">
+        <span class="scenario-index">04</span><span class="scenario-icon">⌘</span><span class="scenario-kicker">VISUAL DEPLOY PREVIEW</span><strong>./bin/fast up</strong><span class="scenario-meta">NO COMMANDS EXECUTE</span><span class="scenario-run">Preview deploy <b>→</b></span>
       </button>
     </section>
 
@@ -52,12 +52,12 @@
 
       <div class="monitor-grid">
         <section class="event-panel panel">
-          <div class="panel-head"><span>EVENT STREAM</span><span id="eventCounter">0 / 8</span></div>
+          <div class="panel-head"><span id="eventStreamLabel">EVENT STREAM</span><span id="eventCounter">0 / 8</span></div>
           <div class="event-list" id="eventList"><div class="empty-state">Choose a scenario and run the replay.</div></div>
         </section>
 
         <section class="incident-panel panel" id="incidentPanel">
-          <div class="panel-head"><span>RESULT</span><span id="resultState">WAITING</span></div>
+          <div class="panel-head"><span id="resultLabel">RESULT</span><span id="resultState">WAITING</span></div>
           <div class="incident-content" id="incidentContent"><div class="result-placeholder"><span>◈</span><strong>Awaiting simulation</strong><p>The incident result will appear here after the replay reaches its detection stage.</p></div></div>
         </section>
       </div>
@@ -65,12 +65,12 @@
 
     <section class="details-grid">
       <article class="detail-card">
-        <span class="section-kicker">PROCESSING MODEL</span>
+        <span class="section-kicker" id="modelLabel">PROCESSING MODEL</span>
         <h2 id="modelTitle">Detection &amp; Incident</h2>
         <div class="model-flow" id="modelFlow"></div>
       </article>
       <article class="detail-card raw-card">
-        <div class="raw-head"><span class="section-kicker">RAW EVENT</span><span>READ ONLY</span></div>
+        <div class="raw-head"><span class="section-kicker" id="rawLabel">RAW EVENT</span><span>VISUAL ONLY</span></div>
         <pre id="rawEvent">{
   "status": "waiting",
   "message": "Run a replay to inspect sanitized event data."
@@ -86,7 +86,7 @@
       </div>
     </section>
 
-    <section class="finish"><div><span class="section-kicker">DEMO COMPLETE</span><h2>Want to run the real platform?</h2><p>This public demo is intentionally read-only. Deploy the full FAST stack on Linux to run Wazuh, TALON, the IOC database and the analyst UI.</p></div><div class="finish-actions"><a class="button primary" href="https://github.com/eppzx2/fast/blob/main/docs/DEPLOYMENT_GUIDE.md" target="_blank" rel="noreferrer">Deploy FAST ↗</a><a class="button ghost" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">GitHub ↗</a></div></section>
+    <section class="finish"><div><span class="section-kicker">DEMO COMPLETE</span><h2>Want to run the real platform?</h2><p>This public demo is read-only. On a prepared Linux host, one ./bin/fast up command is designed to bring up the FAST SOC environment in about five minutes.</p></div><div class="finish-actions"><a class="button primary" href="https://github.com/eppzx2/fast/blob/test/docs/DEPLOYMENT_GUIDE.md" target="_blank" rel="noreferrer">Deploy FAST ↗</a><a class="button ghost" href="https://github.com/eppzx2/fast" target="_blank" rel="noreferrer">GitHub ↗</a></div></section>
   </main>
 
   <footer class="footer"><span>F.A.S.T. · Fully Automated SIEM &amp; Threat Intelligence Platform</span><span>Read-only public demonstration · 2026</span></footer>
