@@ -5,9 +5,9 @@
 ![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Branch](https://img.shields.io/badge/working%20branch-test-253745)
 
-FAST is a lab-oriented security platform that combines threat-intelligence collection, Wazuh SIEM, custom detections, analyst incident workflow, MITRE ATT&CK mapping, and validation tools.
+FAST's main goal is to bring up a complete cyber-monitoring/SOC environment with one command in about five minutes. On a prepared Linux host with Docker Engine and Compose, `./bin/fast up` starts Wazuh SIEM, threat-intelligence collection, FAST detections, and the analyst UI together. Actual time depends on host and network speed, especially during first-time image pulls.
 
-> **Quick deploy:** Docker Engine and the Docker Compose plugin are required. On a Linux host, clone the `test` branch and run `./bin/fast up`.
+ > **One command. About five minutes to a working SOC environment.** On a prepared Linux host with Docker Engine and the Docker Compose plugin, clone the `test` branch and run `./bin/fast up`. First-time image downloads and host/network speed affect the actual duration.
 
 ## At a glance
 
@@ -38,13 +38,13 @@ Wazuh remains authoritative for agent inventory and alert telemetry. FAST keeps 
 ## Quick start
 
 ```bash
-git clone --branch test https://github.com/eppzx2/fast.git 
+git clone --branch test https://github.com/eppzx2/fast.git
 cd fast
 ./bin/fast up
 ./bin/fast status
 ```
 
-The deployment command uses a consistent progress indicator for long image builds; verbose build output is kept in a temporary log and shown if the build fails.
+The first deployment provisions the Wazuh SIEM stack, FAST web UI, and IOC collection workflow. A consistent progress indicator is shown during image builds; verbose build output is kept in a temporary log and shown if the build fails.
 
 ### Lifecycle commands
 
