@@ -87,10 +87,11 @@
     const mitreTechniques=(item.mitre_techniques||[]).join(", ");
     const sourceLabel=item.source_ip_origin==="agent"?"Source IP (host/local event)":"Source IP";
     const statusOption=(value,label)=>`<option value="${value}" ${item.status===value?"selected":""}>${label}</option>`;
+    const ruleTime=[item.rule_id?`Rule ${html(item.rule_id)}`:"",item.timestamp?html(when(item.timestamp)):""].filter(Boolean).join(" · ");
     return `<div class="incident-detail-shell">
       <div class="case-summary">
         <div class="case-headline">
-          <div><strong>${html(item.attack_type||"FAST detection")}</strong><span class="case-rule-line">Rule ${html(item.rule_id||"—")} · ${html(when(item.timestamp))}</span></div>
+          <div><strong>${html(item.attack_type||"FAST detection")}</strong>${ruleTime?`<span class="case-rule-line">${ruleTime}</span>`:""}</div>
           <span class="priority ${html(item.priority||"low")}">${html(item.priority||"low")}</span>
         </div>
         ${item.description?`<p class="case-description">${html(item.description)}</p>`:""}
