@@ -32,6 +32,54 @@ set -e
 # Avoid Compose's non-actionable Bake warning when Buildx is not installed.
 export COMPOSE_BAKE=false
 
+# Keep verbose Docker build output out of the deployment view while retaining
+# actionable diagnostics if the build fails.
+run_quiet_with_progress() {
+    local label="$1"
+    shift
+    local output_file status=0 frame=0 symbol=""
+    output_file="$(mktemp "${TMPDIR:-/tmp}/fast-deploy.XXXXXX.log")" || {
+        echo "[FAST] ERROR: Could not create a temporary build log." >&2
+        return 1
+    }
+
+    "$@" >"$output_file" 2>&1 &
+    local command_pid=$!
+    if [ -t 1 ]; then
+        while kill -0 "$command_pid" 2>/dev/null; do
+            case "$frame" in
+                0) symbol="⠋" ;; 1) symbol="⠙" ;; 2) symbol="⠹" ;; 3) symbol="⠸" ;;
+                4) symbol="⠼" ;; 5) symbol="⠴" ;; 6) symbol="⠦" ;; 7) symbol="⠧" ;;
+                8) symbol="⠇" ;; *) symbol="⠏" ;;
+            esac
+            printf '\r[FAST] %s %s' "$label" "$symbol"
+            frame=$(( (frame + 1) % 10 ))
+            sleep 0.12
+        done
+        wait "$command_pid" || status=$?
+        if [ "$status" -eq 0 ]; then
+            printf '\r[FAST] ✓ %s\n' "$label"
+        else
+            printf '\r[FAST] ✗ %s failed\n' "$label" >&2
+        fi
+    else
+        echo "[FAST] ⏳ $label"
+        wait "$command_pid" || status=$?
+        if [ "$status" -eq 0 ]; then
+            echo "[FAST] ✓ $label"
+        else
+            echo "[FAST] ✗ $label failed" >&2
+        fi
+    fi
+
+    if [ "$status" -ne 0 ]; then
+        echo "[FAST] Build diagnostics (last 60 lines):" >&2
+        tail -n 60 "$output_file" >&2 || true
+    fi
+    rm -f "$output_file"
+    return "$status"
+}
+
 # --- Parse parameters ---
 MANAGER_IP_OVERRIDE=""
 DEMO_MODE=false
@@ -399,7 +447,7 @@ echo "════════════════════════�
 cd "$PROJECT_ROOT"
 
 echo "🔨 Building the IOC Collector image..."
-docker build -t osint-ioc-collector -f docker/ioc-collector.Dockerfile .
+run_quiet_with_progress "Building IOC Collector image" docker build -t osint-ioc-collector -f docker/ioc-collector.Dockerfile .
 
 # Older releases ran the collector as root against the bind-mounted checkout,
 # leaving SQLite/output files root-owned on the host. Repair those once, then

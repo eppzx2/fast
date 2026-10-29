@@ -81,7 +81,7 @@
   }
 
   function caseDetailMarkup(item){
-    const detail=(label,value,mono=false,wide=false)=>`<div class="case-detail${wide?" wide":""}"><span>${html(label)}</span><strong class="${mono?"mono":""}">${html(value||"—")}</strong></div>`;
+    const detail=(label,value,mono=false,wide=false)=>value===null||value===undefined||String(value).trim()===""?"":`<div class="case-detail${wide?" wide":""}"><span>${html(label)}</span><strong class="${mono?"mono":""}">${html(value)}</strong></div>`;
     const mitreIds=(item.mitre_ids||[]).join(", ");
     const mitreTactics=(item.mitre_tactics||[]).join(", ");
     const mitreTechniques=(item.mitre_techniques||[]).join(", ");
@@ -93,9 +93,9 @@
           <div><strong>${html(item.attack_type||"FAST detection")}</strong><span class="case-rule-line">Rule ${html(item.rule_id||"—")} · ${html(when(item.timestamp))}</span></div>
           <span class="priority ${html(item.priority||"low")}">${html(item.priority||"low")}</span>
         </div>
-        <p class="case-description">${html(item.description||"No alert description supplied by Wazuh.")}</p>
+        ${item.description?`<p class="case-description">${html(item.description)}</p>`:""}
         <div class="case-detail-grid">
-          ${detail("Host / Agent",item.agent_name||item.agent_id||"Unknown")}
+          ${detail("Host / Agent",item.agent_name||item.agent_id)}
           ${detail("Agent IP",item.agent_ip,true)}
           ${detail(sourceLabel,item.source_ip,true)}
           ${detail("Source Port",item.source_port,true)}
@@ -187,9 +187,8 @@
         summary.querySelector(".incident-assignee-cell").textContent=item.assignee||"Unassigned";
       }
       $("incOpen").textContent=incidentItems.filter(x=>!["resolved","false_positive"].includes(x.status)).length;
-      feedback.className="case-save-feedback success"; feedback.textContent="Saved ✓";
-      btn.textContent="Saved ✓";
-      setTimeout(()=>{if(btn.isConnected){btn.textContent="Save Analyst State";btn.disabled=auth.enabled&&!can("analyst");}},1200);
+      selectedCaseId="";
+      renderIncidents(incidentItems);
     }catch(e){
       feedback.className="case-save-feedback error"; feedback.textContent=`Save failed: ${e.message}`;
       btn.textContent="Save Analyst State"; btn.disabled=auth.enabled&&!can("analyst");
