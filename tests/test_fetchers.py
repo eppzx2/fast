@@ -100,7 +100,7 @@ def test_fetch_all_feeds_returns_all_names():
     with patch.object(fetchers, "fetch_feodo", return_value=[]), \
          patch.object(fetchers, "fetch_blocklist_de", return_value=[]), \
          patch.object(fetchers, "fetch_openphish", return_value=[]), \
-         patch.object(fetchers, "fetch_spamhaus", return_value=[]),
+         patch.object(fetchers, "fetch_spamhaus", return_value=[]), \
          patch.object(fetchers, "fetch_malwarebazaar", return_value=[]):
         result = fetchers.fetch_all_feeds()
     assert set(result) == {"feodo", "blocklist_de", "openphish", "spamhaus", "malwarebazaar"}
