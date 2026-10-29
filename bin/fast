@@ -42,6 +42,9 @@
 
 set -Eeuo pipefail
 
+# Force Compose away from Bake when the Buildx plugin is unavailable.
+export COMPOSE_BAKE=false
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WAZUH_COMPOSE_DIR="$PROJECT_ROOT/wazuh-docker/single-node"
 MANAGER_CONTAINER="single-node-wazuh.manager-1"
@@ -211,8 +214,7 @@ cmd_up() {
     fi
 
     echo ""
-    echo "[1c/2] Cleaning stale Docker build artifacts (persistent data is preserved)..."
-    bash "$PROJECT_ROOT/bin/fast-cleanup"
+    bash "$PROJECT_ROOT/bin/fast-cleanup" >/dev/null 2>&1
 
     echo "[2/2] Verifying services..."
     echo ""
@@ -229,7 +231,15 @@ cmd_up() {
     return "$status_rc"
 }
 
+normalize_wazuh_compose_file() {
+    local compose_file="$WAZUH_COMPOSE_DIR/docker-compose.yml"
+    if [ -f "$compose_file" ]; then
+        sed -i '/^[[:space:]]*version:[[:space:]]*/d' "$compose_file"
+    fi
+}
+
 cmd_down() {
+    normalize_wazuh_compose_file
     require_docker
     local start_ts=$(date +%s)
     echo "[FAST] Stopping FAST..."
