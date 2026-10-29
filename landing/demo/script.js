@@ -65,27 +65,20 @@ const scenarios = {
     ],
     raw: { timestamp: '2026-09-30T11:08:22Z', rule: { id: '100221', level: 12 }, parent_rule: '100220', process: { name: 'httpd', executable: '/tmp/httpd', source_ip_origin: 'agent' }, agent: { id: 'demo-linux-01', ip: '192.0.2.20' }, mitre: { id: 'T1036.003', tactic: 'Defense Evasion' }, demo: true }
   },
-  ioc: {
-    title: 'IOC Feed Update',
-    subtitle: 'Threat intelligence is collected, normalized, deduplicated and exported for Wazuh.',
-    type: 'INTELLIGENCE REPLAY',
-    model: ['Threat Feeds', 'TALON', 'SQLite', 'Validated CDB', 'Wazuh'],
-    pipeline: ['Feeds', 'TALON', 'SQLite', 'CDB', 'Wazuh'],
-    result: {
-      title: 'IOC Feed Update', severity: 'SUCCESS', rule: 'TALON', mitre: '—', tactic: 'Threat Intelligence',
-      source: '4 providers', agent: 'IOC pipeline', agentIp: '—', destination: 'Wazuh CDB', state: 'Completed'
-    },
+  deploy: {
+    title: './bin/fast up',
+    subtitle: 'Preview the startup sequence for the FAST cyber-monitoring environment. This is a visual-only replay.',
+    type: 'DEPLOY PREVIEW',
+    model: ['./bin/fast up', 'Docker Compose', 'Wazuh + TALON', 'FAST Web UI', 'SOC Ready'],
+    pipeline: ['Command', 'Preflight', 'Services', 'SIEM', 'FAST Ready'],
     events: [
-      ['12:20:01', 'Feodo Tracker feed fetched', 'IPv4 indicators received', 'info'],
-      ['12:20:02', 'URLhaus feed fetched', 'URL threat records normalized', 'info'],
-      ['12:20:03', 'MalwareBazaar feed fetched', 'Hash metadata received', 'info'],
-      ['12:20:04', 'Spamhaus DROP feed fetched', 'IPv4 / CIDR netblocks received', 'info'],
-      ['12:20:05', 'TALON normalization completed', 'Provider-specific records mapped to common IOC schema', 'info'],
-      ['12:20:06', 'Deduplication completed', '327 duplicate records removed', 'info'],
-      ['12:20:07', 'SQLite database updated', '957 indicators validated for IPv4 / CIDR export', 'success'],
-      ['12:20:08', 'Wazuh CDB export completed', 'Validated intelligence is ready for matching', 'success']
+      ['00:00', 'Command shown', './bin/fast up', 'info'],
+      ['00:01', 'Host prerequisites displayed', 'Linux · Docker Engine · Compose', 'info'],
+      ['00:02', 'Core services starting', 'Wazuh Manager · Indexer · Filebeat', 'info'],
+      ['00:03', 'FAST components joining', 'TALON collector · analyst UI', 'info'],
+      ['00:04', 'Monitoring environment ready', 'Example completion state · visual preview', 'success']
     ],
-    raw: { timestamp: '2026-09-30T12:20:08Z', feeds: 4, received: 1284, duplicates: 327, validated: 957, database: 'SQLite', export: 'IPv4/CIDR CDB', status: 'success', demo: true }
+    raw: { mode: 'visual-only', command: './bin/fast up', executes_command: false, changes_infrastructure: false, estimated_setup: 'about 5 minutes on a prepared host', demo: true }
   }
 };
 
@@ -99,7 +92,9 @@ function renderPipeline() {
 
 function renderModel() {
   const data = scenarios[state.scenario];
-  $('modelTitle').textContent = data.type === 'INTELLIGENCE REPLAY' ? 'Intelligence Pipeline' : 'Detection & Incident';
+  $('modelTitle').textContent = data.type === 'DEPLOY PREVIEW' ? 'Visual deployment flow' : 'Detection & Incident';
+  $('modelLabel').textContent = data.type === 'DEPLOY PREVIEW' ? 'DEPLOYMENT FLOW' : 'PROCESSING MODEL';
+  $('rawLabel').textContent = data.type === 'DEPLOY PREVIEW' ? 'PREVIEW DATA' : 'RAW EVENT';
   $('modelFlow').innerHTML = data.model.map((item, i) => `<span class="model-node">${item}</span>${i < data.model.length - 1 ? '<span class="model-arrow">→</span>' : ''}`).join('');
 }
 
@@ -108,12 +103,20 @@ function selectScenario(key) {
   document.querySelectorAll('.scenario').forEach((button) => button.classList.toggle('active', button.dataset.scenario === key));
   const data = scenarios[key];
   $('scenarioTitle').textContent = data.title;
+  const deployPreview = key === 'deploy';
+  $('replayBtn').textContent = deployPreview ? '▶ Preview Deploy' : '▶ Run Replay';
+  $('eventStreamLabel').textContent = deployPreview ? 'DEPLOYMENT STEPS' : 'EVENT STREAM';
+  $('resultLabel').textContent = deployPreview ? 'PREVIEW' : 'RESULT';
   $('scenarioSubtitle').textContent = data.subtitle;
   $('eventCounter').textContent = `0 / ${data.events.length}`;
   $('resultState').textContent = 'WAITING';
-  $('eventList').innerHTML = '<div class="empty-state">Choose “Run Replay” to start the read-only simulation.</div>';
+  $('eventList').innerHTML = deployPreview
+    ? '<div class="empty-state">Choose “Preview Deploy” to watch the visual-only startup flow. No command will run.</div>'
+    : '<div class="empty-state">Choose “Run Replay” to start the read-only simulation.</div>';
   $('incidentContent').innerHTML = '<div class="result-placeholder"><span>◈</span><strong>Awaiting simulation</strong><p>The result will appear here after the replay reaches its final stage.</p></div>';
-  $('rawEvent').textContent = JSON.stringify({ status: 'waiting', message: 'Run a replay to inspect sanitized event data.' }, null, 2);
+  $('rawEvent').textContent = JSON.stringify(deployPreview
+    ? { mode: 'visual-only', command: './bin/fast up', executes_command: false, status: 'waiting' }
+    : { status: 'waiting', message: 'Run a replay to inspect sanitized event data.' }, null, 2);
   renderPipeline();
   renderModel();
 }
@@ -134,15 +137,21 @@ function addEvent(event, index, token) {
   $('eventList').appendChild(item);
   $('eventList').scrollTop = $('eventList').scrollHeight;
   $('eventCounter').textContent = `${index + 1} / ${scenarios[state.scenario].events.length}`;
-  const pipelineStep = Math.min(4, Math.floor(index / 2));
+  const pipelineStep = Math.min(4, Math.floor((index / scenarios[state.scenario].events.length) * 5));
   activateStep(pipelineStep);
 }
 
 function showResult() {
   const data = scenarios[state.scenario];
+  if (state.scenario === 'deploy') {
+    $('resultState').textContent = 'VISUAL PREVIEW';
+    $('incidentContent').innerHTML = '<div class="incident-header"><div><div class="incident-title">FAST environment</div><div class="incident-type">DEPLOY PREVIEW · NO COMMAND EXECUTED</div></div><span class="severity info">READY</span></div><div class="incident-grid"><div class="incident-field"><span>Command shown</span><b>./bin/fast up</b></div><div class="incident-field"><span>Setup target</span><b>About 5 minutes*</b></div><div class="incident-field"><span>Core stack</span><b>Wazuh · TALON · FAST UI</b></div><div class="incident-field"><span>Requirements</span><b>Linux · Docker Compose</b></div></div><div class="result-note">This is a visual-only preview. It does not execute ./bin/fast up, start containers, or make infrastructure changes. *Actual setup time depends on the host, network, and first-time image downloads.</div>';
+    activateStep(4);
+    return;
+  }
   const r = data.result;
   $('resultState').textContent = r.severity === 'SUCCESS' ? 'COMPLETE' : 'INCIDENT CREATED';
-  $('incidentContent').innerHTML = `<div class="incident-header"><div><div class="incident-title">${r.title}</div><div class="incident-type">${data.type} · READ ONLY</div></div><span class="severity ${r.severity === 'SUCCESS' ? 'info' : r.severity === 'HIGH' ? 'medium' : ''}">${r.severity}</span></div><div class="incident-grid"><div class="incident-field"><span>Rule / Pipeline</span><b>${r.rule}</b></div><div class="incident-field"><span>State</span><b>${r.state}</b></div><div class="incident-field"><span>Source</span><b>${r.source}</b></div><div class="incident-field"><span>Agent</span><b>${r.agent}</b></div><div class="incident-field"><span>Agent IP</span><b>${r.agentIp}</b></div><div class="incident-field"><span>Destination</span><b>${r.destination}</b></div></div><div class="mitre-box"><span>${r.mitre === '—' ? 'INTELLIGENCE CONTEXT' : 'MITRE ATT&CK'}</span><strong>${r.mitre === '—' ? 'Threat intelligence update' : r.mitre}</strong><small>${r.tactic}</small></div><div class="result-note">${state.scenario === 'lolbin' ? 'Local process event: FAST uses the agent IP as host context and does not label it as an attacker source IP.' : state.scenario === 'ioc' ? 'Validated indicators are exported as IPv4/CIDR CDB data for Wazuh matching.' : 'The replay shows the same logical stages used by FAST without executing an attack or changing infrastructure.'}</div>`;
+  $('incidentContent').innerHTML = `<div class="incident-header"><div><div class="incident-title">${r.title}</div><div class="incident-type">${data.type} · READ ONLY</div></div><span class="severity ${r.severity === 'SUCCESS' ? 'info' : r.severity === 'HIGH' ? 'medium' : ''}">${r.severity}</span></div><div class="incident-grid"><div class="incident-field"><span>Rule / Pipeline</span><b>${r.rule}</b></div><div class="incident-field"><span>State</span><b>${r.state}</b></div><div class="incident-field"><span>Source</span><b>${r.source}</b></div><div class="incident-field"><span>Agent</span><b>${r.agent}</b></div><div class="incident-field"><span>Agent IP</span><b>${r.agentIp}</b></div><div class="incident-field"><span>Destination</span><b>${r.destination}</b></div></div><div class="mitre-box"><span>${r.mitre === '—' ? 'INTELLIGENCE CONTEXT' : 'MITRE ATT&CK'}</span><strong>${r.mitre === '—' ? 'Threat intelligence update' : r.mitre}</strong><small>${r.tactic}</small></div><div class="result-note">${state.scenario === 'lolbin' ? 'Local process event: FAST uses the agent IP as host context and does not label it as an attacker source IP.' :  'The replay shows the same logical stages used by FAST without executing an attack or changing infrastructure.'}</div>`;
   activateStep(4);
 }
 
@@ -151,9 +160,11 @@ function replay() {
   const token = state.token;
   state.running = true;
   $('replayBtn').disabled = true;
-  $('replayBtn').textContent = '● Running…';
+  $('replayBtn').textContent = state.scenario === 'deploy' ? '● Previewing…' : '● Running…';
   $('eventList').innerHTML = '';
-  $('incidentContent').innerHTML = '<div class="result-placeholder"><span>◌</span><strong>Processing replay…</strong><p>FAST is moving the event through the selected pipeline.</p></div>';
+  $('incidentContent').innerHTML = state.scenario === 'deploy'
+    ? '<div class="result-placeholder"><span>◌</span><strong>Previewing startup…</strong><p>Showing the deployment flow only. No command is running.</p></div>'
+    : '<div class="result-placeholder"><span>◌</span><strong>Processing replay…</strong><p>FAST is moving the event through the selected pipeline.</p></div>';
   $('resultState').textContent = 'PROCESSING';
   $('rawEvent').textContent = JSON.stringify({ status: 'processing', scenario: scenarios[state.scenario].title, demo: true }, null, 2);
   renderPipeline();
@@ -174,7 +185,7 @@ function replay() {
     showResult();
     state.running = false;
     $('replayBtn').disabled = false;
-    $('replayBtn').textContent = '↻ Replay';
+    $('replayBtn').textContent = state.scenario === 'deploy' ? '↻ Replay Preview' : '↻ Replay';
   }, 650 * (data.events.length + 1));
 }
 
