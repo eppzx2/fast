@@ -64,9 +64,10 @@ Wazuh remains the source of truth for agents and alerts. FAST stores IOC data pl
 | Feodo Tracker | botnet C2 IPv4s | public |
 | Blocklist.de | IPs reported for attacks against servers/services | public, no API key |
 | OpenPhish | phishing URLs | public community feed, no API key |
+| MalwareBazaar | malware sample MD5/SHA-1/SHA-256 hashes | free community API; free Auth-Key required |
 | Spamhaus DROP | malicious IPv4/CIDR netblocks | public |
 
-No API keys are required for the four configured public threat-intelligence feeds. The optional local `.env` file remains available for other deployment settings and is git-ignored.
+The four IP/URL feeds need no API key. MalwareBazaar is optional; set ABUSECH_AUTH_KEY in the local `.env` file to enable it. Obtain a free key at https://auth.abuse.ch/. The `.env` file is git-ignored; never commit an API key.
 
 ## Collector CLI
 

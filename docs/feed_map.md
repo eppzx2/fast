@@ -111,6 +111,30 @@ Mapping:
 
 Objects without `cidr` and malformed lines are skipped.
 
+## MalwareBazaar
+
+Source: MalwareBazaar Community API, queried for the latest 100 additions:
+
+~~~text
+POST https://mb-api.abuse.ch/api/v1/
+query=get_recent
+selector=100
+~~~
+
+The community API is free under its fair-use terms, and requires a free Auth-Key from https://auth.abuse.ch/. Configure it as ABUSECH_AUTH_KEY in the local .env file or environment. If the key is missing, FAST skips this optional feed while continuing the other providers. FAST never downloads malware samples.
+
+Each valid SHA-256, SHA-1 and MD5 value is stored as an independent hash IOC.
+
+| Provider field | FAST field |
+|---|---|
+| sha256_hash, sha1_hash, md5_hash | ioc_value |
+| fixed | ioc_type = hash |
+| fixed | source_feed = malwarebazaar |
+| first_seen, last_seen | timestamps |
+| signature, file_type, file_format, tags | tags |
+
+Hash IOCs remain searchable in the FAST database/UI. The Wazuh CDB exporter remains limited to validated IPv4/CIDR IOCs.
+
 ## Aggregate fetch behavior
 
 Use:

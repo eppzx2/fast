@@ -50,10 +50,8 @@ cd "$PROJECT_ROOT"
 
 collector_env=()
 if [ -n "${ABUSECH_AUTH_KEY:-}" ]; then
-    # --env NAME forwards the local value without placing it in the command text.
+    # Forward only the optional feed credential, never the entire host environment.
     collector_env=(--env ABUSECH_AUTH_KEY)
-else
-    echo "⚠️  ABUSECH_AUTH_KEY is not set; MalwareBazaar may use only its compatibility fallback"
 fi
 
 # cli.py now returns non-zero when every feed fails or a usable Wazuh export

@@ -287,7 +287,7 @@
       <div class="filters">
         <input class="control" id="searchInput" type="search" placeholder="Search IOC value..." autocomplete="off">
         <select class="control" id="typeFilter"><option value="">All types</option><option value="ip">IP</option><option value="url">URL</option><option value="hash">Hash</option><option value="domain">Domain</option></select>
-        <select class="control" id="feedFilter"><option value="">All feeds</option><option value="feodo">Feodo</option><option value="blocklist_de">Blocklist.de</option><option value="openphish">OpenPhish</option><option value="urlhaus">Legacy URLhaus</option><option value="malwarebazaar">Legacy MalwareBazaar</option><option value="spamhaus">Spamhaus</option></select>
+        <select class="control" id="feedFilter"><option value="">All feeds</option><option value="feodo">Feodo</option><option value="blocklist_de">Blocklist.de</option><option value="openphish">OpenPhish</option><option value="urlhaus">Legacy URLhaus</option><option value="malwarebazaar">MalwareBazaar</option><option value="spamhaus">Spamhaus</option></select>
         <select class="control" id="scoreFilter"><option value="0">Any confidence</option><option value="50">50+</option><option value="75">75+</option><option value="100">100 only</option></select>
         <div class="result-count" id="resultCount">—</div>
       </div>
@@ -338,7 +338,7 @@
       <div class="section-head"><div><h2>FAST Architecture</h2><p>How external threat intelligence becomes normalized data and Wazuh detections.</p></div></div>
       <div class="card">
         <div class="architecture">
-          <div class="arch-node"><div class="arch-step">01 · Sources</div><div class="arch-title">Threat Feeds</div><div class="arch-desc">Feodo Tracker, Blocklist.de, OpenPhish and Spamhaus DROP provide raw indicators.</div></div>
+          <div class="arch-node"><div class="arch-step">01 · Sources</div><div class="arch-title">Threat Feeds</div><div class="arch-desc">Feodo Tracker, Blocklist.de, OpenPhish, MalwareBazaar and Spamhaus DROP provide raw indicators.</div></div>
           <div class="arch-arrow">→</div>
           <div class="arch-node"><div class="arch-step">02 · Collector</div><div class="arch-title">Normalize & Deduplicate</div><div class="arch-desc">FAST converts provider records into one schema and merges duplicate observations.</div></div>
           <div class="arch-arrow">→</div>
@@ -369,12 +369,13 @@ const feedInfo={
   feodo:{title:"Feodo Tracker",desc:"Botnet command-and-control IPv4 intelligence from abuse.ch."},
   blocklist_de:{title:"Blocklist.de",desc:"Public IP blocklist of hosts reported for attacks against servers and services."},
   openphish:{title:"OpenPhish",desc:"Public community feed of verified phishing URLs."},
+  malwarebazaar:{title:"MalwareBazaar",desc:"Recent malicious file hashes (MD5, SHA-1 and SHA-256). Free abuse.ch API; requires a free Auth-Key."},
   spamhaus:{title:"Spamhaus DROP",desc:"High-risk IPv4 network ranges from the Spamhaus DROP dataset."}
 };
 function byId(id){return document.getElementById(id)}
 function number(v){return Number(v||0).toLocaleString()}
 function displayFeedNames(value){
-  const labels={feodo:"Feodo Tracker",blocklist_de:"Blocklist.de",openphish:"OpenPhish",spamhaus:"Spamhaus DROP",urlhaus:"Legacy URLhaus",malwarebazaar:"Legacy MalwareBazaar"};
+  const labels={feodo:"Feodo Tracker",blocklist_de:"Blocklist.de",openphish:"OpenPhish",spamhaus:"Spamhaus DROP",urlhaus:"Legacy URLhaus",malwarebazaar:"MalwareBazaar"};
   return String(value||"").split(",").map(name=>labels[name.trim()]||name.trim()).filter(Boolean).join(", ");
 }
 function showToast(message,error=false){const el=byId("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(el._timer);el._timer=setTimeout(()=>el.classList.remove("show"),4600)}

@@ -6,6 +6,10 @@ import os
 import sys
 from typing import Optional, Sequence
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from core import db, exporter, fetchers, normalizer, wazuh_export
 
 logging.basicConfig(

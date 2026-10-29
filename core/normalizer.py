@@ -156,12 +156,51 @@ def normalize_spamhaus(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return normalized
 
 
+def normalize_malwarebazaar(raw_iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize MalwareBazaar sample hashes as separate FAST hash IOCs."""
+    normalized: List[Dict[str, Any]] = []
+    hash_fields = (("md5_hash", 32), ("sha1_hash", 40), ("sha256_hash", 64))
+    for raw in raw_iocs:
+        try:
+            tags: List[str] = []
+            raw_tags = raw.get("tags") or []
+            if isinstance(raw_tags, str):
+                raw_tags = [raw_tags]
+            if isinstance(raw_tags, list):
+                tags.extend(str(tag).strip() for tag in raw_tags if str(tag).strip())
+            for field in ("signature", "file_type", "file_format"):
+                value = str(raw.get(field) or "").strip()
+                if value and value not in tags:
+                    tags.append(value)
+
+            first_seen = _parse_date(raw.get("first_seen"))
+            last_seen = _parse_date(raw.get("last_seen") or raw.get("first_seen"))
+            for field, expected_length in hash_fields:
+                value = str(raw.get(field) or "").strip().lower()
+                if len(value) != expected_length or any(ch not in "0123456789abcdef" for ch in value):
+                    continue
+                normalized.append(
+                    {
+                        "ioc_value": value,
+                        "ioc_type": "hash",
+                        "source_feed": "malwarebazaar",
+                        "first_seen": first_seen,
+                        "last_seen": last_seen,
+                        "tags": tags,
+                    }
+                )
+        except Exception as exc:
+            logger.error("MalwareBazaar normalization error (record skipped): %s", exc)
+    logger.info("MalwareBazaar: %d/%d hashes normalized", len(normalized), len(raw_iocs))
+    return normalized
+
 def normalize_all(raw_feeds: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
     functions = {
         "feodo": normalize_feodo,
         "blocklist_de": normalize_blocklist_de,
         "openphish": normalize_openphish,
         "spamhaus": normalize_spamhaus,
+        "malwarebazaar": normalize_malwarebazaar,
     }
     all_normalized: List[Dict[str, Any]] = []
     for feed_name, raw_iocs in raw_feeds.items():

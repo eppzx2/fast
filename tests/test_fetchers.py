@@ -100,9 +100,10 @@ def test_fetch_all_feeds_returns_all_names():
     with patch.object(fetchers, "fetch_feodo", return_value=[]), \
          patch.object(fetchers, "fetch_blocklist_de", return_value=[]), \
          patch.object(fetchers, "fetch_openphish", return_value=[]), \
-         patch.object(fetchers, "fetch_spamhaus", return_value=[]):
+         patch.object(fetchers, "fetch_spamhaus", return_value=[]),
+         patch.object(fetchers, "fetch_malwarebazaar", return_value=[]):
         result = fetchers.fetch_all_feeds()
-    assert set(result) == {"feodo", "blocklist_de", "openphish", "spamhaus"}
+    assert set(result) == {"feodo", "blocklist_de", "openphish", "spamhaus", "malwarebazaar"}
     assert all(isinstance(items, list) for items in result.values())
 
 
@@ -110,7 +111,8 @@ def test_fetch_all_feeds_partial_failure_isolated():
     with patch.object(fetchers, "fetch_feodo", return_value=[]), \
          patch.object(fetchers, "fetch_blocklist_de", return_value=[{"ip_address": "1.2.3.4"}]), \
          patch.object(fetchers, "fetch_openphish", return_value=[]), \
-         patch.object(fetchers, "fetch_spamhaus", return_value=[{"cidr": "1.2.3.0/24"}]):
+         patch.object(fetchers, "fetch_spamhaus", return_value=[{"cidr": "1.2.3.0/24"}]), \
+         patch.object(fetchers, "fetch_malwarebazaar", return_value=[]):
         result = fetchers.fetch_all_feeds()
     assert result["feodo"] == []
     assert len(result["blocklist_de"]) == 1

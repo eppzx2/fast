@@ -8,6 +8,7 @@ returned per-feed lists and decide whether an all-feed failure is fatal.
 import ipaddress
 import json
 import logging
+import os
 from typing import Any, Dict, List
 from urllib.parse import urlsplit
 
@@ -23,6 +24,7 @@ FEED_URLS = {
     "blocklist_de": "https://lists.blocklist.de/lists/all.txt",
     "openphish": "https://openphish.com/feed.txt",
     "spamhaus": "https://www.spamhaus.org/drop/drop_v4.json",
+    "malwarebazaar": "https://mb-api.abuse.ch/api/v1/",
 }
 
 
@@ -113,6 +115,43 @@ def fetch_openphish() -> List[Dict[str, Any]]:
     return []
 
 
+def fetch_malwarebazaar() -> List[Dict[str, Any]]:
+    """Fetch MalwareBazaar latest 100 samples using its authenticated API."""
+    api_key = os.getenv("ABUSECH_AUTH_KEY", "").strip()
+    if not api_key:
+        logger.info("MalwareBazaar skipped: set ABUSECH_AUTH_KEY to enable the free community API")
+        return []
+
+    url = FEED_URLS["malwarebazaar"]
+    try:
+        logger.info("Fetching MalwareBazaar recent hashes")
+        response = requests.post(
+            url,
+            data={"query": "get_recent", "selector": "100"},
+            headers={**_headers(), "Auth-Key": api_key},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            logger.error("MalwareBazaar: unexpected API response")
+            return []
+        status = payload.get("query_status")
+        if status == "no_results":
+            logger.info("MalwareBazaar: no recent samples")
+            return []
+        if status != "ok" or not isinstance(payload.get("data"), list):
+            logger.error("MalwareBazaar API returned status %r", status)
+            return []
+        result = payload["data"]
+        logger.info("MalwareBazaar: %d recent samples fetched", len(result))
+        return result
+    except requests.RequestException as exc:
+        logger.error("MalwareBazaar request failed: %s", exc)
+    except (ValueError, TypeError) as exc:
+        logger.error("MalwareBazaar parse failed: %s", exc)
+    return []
+
 def fetch_spamhaus() -> List[Dict[str, Any]]:
     """Fetch Spamhaus DROP IPv4 ranges from the current NDJSON dataset."""
     url = FEED_URLS["spamhaus"]
@@ -154,6 +193,7 @@ def fetch_all_feeds() -> Dict[str, List[Dict[str, Any]]]:
         "blocklist_de": fetch_blocklist_de,
         "openphish": fetch_openphish,
         "spamhaus": fetch_spamhaus,
+        "malwarebazaar": fetch_malwarebazaar,
     }
     results: Dict[str, List[Dict[str, Any]]] = {}
     for feed_name, fetch_func in fetch_functions.items():

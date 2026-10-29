@@ -460,6 +460,10 @@ done
 "
 mkdir -p "$PROJECT_ROOT/sample_output"
 
+collector_env=()
+if [ -n "${ABUSECH_AUTH_KEY:-}" ]; then
+    collector_env=(--env ABUSECH_AUTH_KEY)
+fi
 echo ""
 if [ "$DEMO_MODE" = true ]; then
     echo "📦 DEMO mode: seeding IOCs from sample_output/ioc_export.json (no network calls)..."
@@ -480,7 +484,7 @@ print(f'Seeded {count} IOCs from fixture')
     docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" osint-ioc-collector --export wazuh
 else
     echo "📡 Collecting from feeds, normalizing, exporting to Wazuh CDB..."
-    docker run --rm --user "$HOST_UID:$HOST_GID" -v "$PROJECT_ROOT:/app" osint-ioc-collector \
+    docker run --rm --user "$HOST_UID:$HOST_GID" "${collector_env[@]}" -v "$PROJECT_ROOT:/app" osint-ioc-collector \
         --init-db --fetch --export wazuh
 fi
 

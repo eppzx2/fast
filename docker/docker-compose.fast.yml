@@ -31,6 +31,7 @@ services:
       FAST_WEB_HOST: "0.0.0.0"
       FAST_WEB_PORT: "5000"
       FAST_WEB_DEBUG: "0"
+      ABUSECH_AUTH_KEY: "${ABUSECH_AUTH_KEY:-}"
       FAST_WAZUH_API_URL: "${FAST_WAZUH_API_URL:-https://wazuh.manager:55000}"
       FAST_WAZUH_API_USER: "${FAST_WAZUH_API_USER:-wazuh-wui}"
       FAST_WAZUH_API_PASSWORD: "${FAST_WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}"
