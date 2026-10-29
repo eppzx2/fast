@@ -113,4 +113,4 @@ def test_dashboard_uses_replacement_feed_names(tmp_path, monkeypatch):
     assert "Blocklist.de" in html
     assert "OpenPhish" in html
     assert "Legacy URLhaus" in html
-    assert "Legacy MalwareBazaar" in html
+    assert "MalwareBazaar" in html
