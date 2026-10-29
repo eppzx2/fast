@@ -29,6 +29,9 @@
 
 set -e
 
+# Avoid Compose's non-actionable Bake warning when Buildx is not installed.
+export COMPOSE_BAKE=false
+
 # --- Parse parameters ---
 MANAGER_IP_OVERRIDE=""
 DEMO_MODE=false
@@ -348,6 +351,13 @@ else
     echo "✓ Wazuh Docker stack already exists ($WAZUH_DIR)"
 fi
 
+# The upstream Wazuh Compose file still declares the obsolete top-level version key.
+# Compose ignores it; remove it locally so every Compose command stays quiet.
+WAZUH_COMPOSE_FILE="$WAZUH_SINGLE_NODE_DIR/docker-compose.yml"
+if [ -f "$WAZUH_COMPOSE_FILE" ]; then
+    sed -i '/^[[:space:]]*version:[[:space:]]*/d' "$WAZUH_COMPOSE_FILE"
+fi
+
 cd "$WAZUH_SINGLE_NODE_DIR"
 prepare_wazuh_certificates
 
@@ -496,5 +506,4 @@ echo "To refresh IOCs: ./refresh_iocs.sh"
 echo "To stop the stack: cd wazuh-docker/single-node && docker compose down"
 
 echo ""
-echo "🧹 Cleaning stale Docker build artifacts (persistent data is preserved)..." 
-bash "$PROJECT_ROOT/bin/fast-cleanup"
+bash "$PROJECT_ROOT/bin/fast-cleanup" >/dev/null 2>&1
