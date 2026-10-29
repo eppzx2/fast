@@ -27,8 +27,12 @@ Tailscale is recommended for lab administration so Wazuh management ports do not
 - Docker Compose plugin
 - Git
 - Python 3 for host-side helper scripts
-- about 4 GB RAM minimum for the single-node Wazuh lab stack
-- about 10 GB free disk for a practical test environment
+### Recommended system sizing
+
+- 8 GB RAM for the single-node Wazuh lab stack
+- 24 GB free disk for a practical test environment
+
+These are recommended starting values, not measured capacity guarantees. Increase them for higher event ingestion, longer retention, or additional workload.
 
 Check:
 
