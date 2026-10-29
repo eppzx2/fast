@@ -113,7 +113,9 @@ function selectScenario(key) {
   $('eventList').innerHTML = deployPreview
     ? '<div class="empty-state">Choose “Preview Deploy” to watch the visual-only startup flow. No command will run.</div>'
     : '<div class="empty-state">Choose “Run Replay” to start the read-only simulation.</div>';
-  $('incidentContent').innerHTML = '<div class="result-placeholder"><span>◈</span><strong>Awaiting simulation</strong><p>The result will appear here after the replay reaches its final stage.</p></div>';
+  $('incidentContent').innerHTML = deployPreview
+    ? '<div class="result-placeholder"><span>◈</span><strong>Ready for visual preview</strong><p>Choose “Preview Deploy” to see the startup flow. No command will run.</p></div>'
+    : '<div class="result-placeholder"><span>◈</span><strong>Awaiting replay</strong><p>The result will appear here after the replay reaches its final stage.</p></div>';
   $('rawEvent').textContent = JSON.stringify(deployPreview
     ? { mode: 'visual-only', command: './bin/fast up', executes_command: false, status: 'waiting' }
     : { status: 'waiting', message: 'Run a replay to inspect sanitized event data.' }, null, 2);
@@ -166,7 +168,9 @@ function replay() {
     ? '<div class="result-placeholder"><span>◌</span><strong>Previewing startup…</strong><p>Showing the deployment flow only. No command is running.</p></div>'
     : '<div class="result-placeholder"><span>◌</span><strong>Processing replay…</strong><p>FAST is moving the event through the selected pipeline.</p></div>';
   $('resultState').textContent = 'PROCESSING';
-  $('rawEvent').textContent = JSON.stringify({ status: 'processing', scenario: scenarios[state.scenario].title, demo: true }, null, 2);
+  $('rawEvent').textContent = JSON.stringify(state.scenario === 'deploy'
+    ? { mode: 'visual-only', command: './bin/fast up', executes_command: false, status: 'previewing', demo: true }
+    : { status: 'processing', scenario: scenarios[state.scenario].title, demo: true }, null, 2);
   renderPipeline();
   activateStep(0);
 
@@ -175,6 +179,7 @@ function replay() {
     window.setTimeout(() => {
       addEvent(event, index, token);
       const raw = { timestamp: `2026-09-30T${event[0]}Z`, stage: event[1], detail: event[2], demo: true };
+      if (state.scenario === 'deploy') Object.assign(raw, { mode: 'visual-only', executes_command: false });
       $('rawEvent').textContent = JSON.stringify(raw, null, 2);
     }, 650 * (index + 1));
   });
