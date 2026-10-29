@@ -38,7 +38,7 @@ Wazuh remains authoritative for agent inventory and alert telemetry. FAST keeps 
 ## Quick start
 
 ```bash
-git clone --branch test https://github.com/eppzx2/fast.git fast
+git clone --branch test https://github.com/eppzx2/fast.git 
 cd fast
 ./bin/fast up
 ./bin/fast status
