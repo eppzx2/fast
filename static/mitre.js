@@ -43,7 +43,7 @@
     icon.textContent = "▦";
     button.append(icon, document.createTextNode("MITRE ATT&CK"));
     button.addEventListener("click", activate);
-    const before = nav.querySelector('[data-view="validation"]') || nav.querySelector('[data-view="system"]');
+    const before = nav.querySelector('[data-view="architecture"]');
     nav.insertBefore(button, before || null);
   }
 
@@ -86,7 +86,7 @@
           <div class="platform-empty" id="mitreTechniqueEmpty">No FAST techniques are mapped.</div>
         </div>
       </div>`;
-    const before = $("view-validation") || $("view-system");
+    const before = $("view-architecture");
     main.insertBefore(section, before || null);
     $("refreshMitre").addEventListener("click", loadMitre);
   }
