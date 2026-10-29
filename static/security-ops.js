@@ -30,7 +30,6 @@
     document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id===`view-${name}`));
     document.querySelectorAll(".nav-btn").forEach(el=>el.classList.toggle("active",el.dataset.view===name));
     if(name==="incidents"){ meta("Security operations","Incidents","Triage real FAST detections and correlated activity."); loadIncidents(); }
-    if(name==="validation"){ meta("Detection engineering","Detection Validation","Validate FAST rules against real Wazuh alerts — no synthetic telemetry."); loadValidation(); }
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
@@ -41,12 +40,11 @@
   }
 
   function installNav(){
-    document.querySelector('.nav-btn[data-view="simulation"]')?.remove();
-    document.querySelector('.nav-btn[data-view="detections"]')?.remove();
+    [".nav-btn[data-view='simulation']",".nav-btn[data-view='detections']",".nav-btn[data-view='validation']",".nav-btn[data-view='feeds']",".nav-btn[data-view='system']"].forEach(selector=>document.querySelector(selector)?.remove());
     $("view-simulation")?.remove();
     const nav=document.querySelector(".nav"); if(!nav) return;
-    if(!nav.querySelector('[data-view="incidents"]')) nav.insertBefore(navButton("incidents","◆","Incidents"),nav.querySelector('[data-view="detections"]'));
-    if(!nav.querySelector('[data-view="validation"]')) nav.insertBefore(navButton("validation","⚡","Detection Validation"),nav.querySelector('[data-view="system"]'));
+    const architecture=nav.querySelector('[data-view="architecture"]');
+    if(!nav.querySelector('[data-view="incidents"]')) nav.insertBefore(navButton("incidents","◆","Incidents"),architecture||null);
   }
 
   async function initAuth(){
@@ -210,17 +208,22 @@
   }
 
   function installValidation(){
-    if($("view-validation")) return; const main=document.querySelector("main.main"); if(!main)return;
-    const s=document.createElement("section");s.className="view";s.id="view-validation";
-    s.innerHTML=`<div class="section-head"><div><h2>Detection Validation Lab</h2><p>Run existing lab scripts from the correct host; FAST verifies whether the expected real Wazuh rule fired.</p></div><button class="btn btn-primary" id="refreshValidation">Refresh Validation</button></div><div class="validation-grid" id="validationGrid"></div><div class="card" style="margin-top:16px"><div class="card-head"><div><div class="card-kicker">Real flow</div><div class="card-title">Attack → Wazuh Agent → Wazuh SIEM → Alert → FAST / TALON</div></div></div><div class="platform-flow compact-flow"><div class="flow-node"><div><div class="flow-step">01</div><div class="flow-title">Lab Activity</div></div></div><div class="flow-arrow">→</div><div class="flow-node"><div><div class="flow-step">02</div><div class="flow-title">Wazuh Agent</div></div></div><div class="flow-arrow">→</div><div class="flow-node core"><div><div class="flow-step">03</div><div class="flow-title">Wazuh SIEM</div></div></div><div class="flow-arrow">→</div><div class="flow-node"><div><div class="flow-step">04</div><div class="flow-title">Real Alert</div></div></div><div class="flow-arrow">→</div><div class="flow-node active"><div><div class="flow-step">05</div><div class="flow-title">FAST / TALON</div></div></div></div></div>`;
-    main.insertBefore(s,$("view-system"));$("refreshValidation").onclick=loadValidation;
+    const view=$("view-architecture"); if(!view||$("detectionFlowSection"))return;
+    const section=document.createElement("section"); section.id="detectionFlowSection"; section.className="architecture-section";
+    section.innerHTML=`<div class="section-head"><div><h2>Detection Event Flow</h2><p>How a real event moves from a monitored host through Wazuh and appears in FAST.</p></div></div><div class="card"><div class="card-head"><div><div class="card-kicker">Detection pipeline</div><div class="card-title">Endpoint → Wazuh Agent → Wazuh SIEM → Alert → FAST / TALON</div></div></div><div class="platform-flow compact-flow"><div class="flow-node"><div><div class="flow-step">01</div><div class="flow-title">Monitored Host</div></div></div><div class="flow-arrow">→</div><div class="flow-node"><div><div class="flow-step">02</div><div class="flow-title">Wazuh Agent</div></div></div><div class="flow-arrow">→</div><div class="flow-node core"><div><div class="flow-step">03</div><div class="flow-title">Wazuh SIEM</div></div></div><div class="flow-arrow">→</div><div class="flow-node"><div><div class="flow-step">04</div><div class="flow-title">Real Alert</div></div></div><div class="flow-arrow">→</div><div class="flow-node active"><div><div class="flow-step">05</div><div class="flow-title">FAST / TALON</div></div></div></div></div>`;
+    view.appendChild(section);
   }
 
-  async function loadValidation(){
-    const grid=$("validationGrid"); if(!grid)return;
-    try{const data=await api("/api/security/validation",{cache:"no-store"});grid.textContent="";(data.items||[]).forEach(item=>{const d=document.createElement("div");d.className="card validation-card";d.innerHTML=`<div class="validation-top"><div><div class="card-kicker">Rule ${html(item.id)}</div><div class="card-title">${html(item.name)}</div></div><span class="validation-state ${html(item.validation)}">${html(item.validation)}</span></div><div class="validation-meta"><span>24h alerts <strong>${html(item.count_24h)}</strong></span><span>Last trigger <strong>${html(when(item.last_triggered))}</strong></span><span>Agent <strong>${html(item.last_agent||"—")}</strong></span></div><div class="sim-command"><div class="sim-command-title">${html(item.validation_host)} · copy only</div><code>${html(item.validation_command)}</code><small>Browser never executes attack scripts. PASS requires the real rule to be observed within ${html(data.fresh_minutes)} minutes.</small></div>`;grid.appendChild(d);});}
-    catch(e){grid.innerHTML=`<div class="card platform-empty">Validation unavailable: ${html(e.message)}</div>`;}
+  function moveSystemHealthToArchitecture(){
+    const system=$("view-system"), architecture=$("view-architecture");
+    if(!system||!architecture)return;
+    const section=document.createElement("section");
+    section.id="architectureSystemHealth"; section.className="architecture-section";
+    while(system.firstChild)section.appendChild(system.firstChild);
+    architecture.appendChild(section);
+    system.remove();
   }
+
 
   function enhanceDetections(){
     const view=$("view-detections"); if(!view)return;
@@ -259,7 +262,7 @@
   }
 
   function installAudit(){
-    const view=$("view-system");if(!view||$("auditPanel"))return;const p=document.createElement("div");p.id="auditPanel";p.className="card table-card";p.style.marginTop="16px";p.innerHTML='<div class="card-head padded-head"><div><div class="card-kicker">FAST audit trail</div><div class="card-title">Security Operations Activity</div></div><button class="btn btn-small" id="refreshAudit">Refresh</button></div><div class="table-scroll"><table id="auditTable"><thead><tr><th>Time</th><th>Actor</th><th>Role</th><th>Action</th><th>Object</th></tr></thead><tbody id="auditBody"></tbody></table><div class="platform-empty" id="auditEmpty">No audit events yet.</div></div>';view.appendChild(p);$("refreshAudit").onclick=loadAudit;
+    const view=$("view-architecture");if(!view||$("auditPanel"))return;const p=document.createElement("div");p.id="auditPanel";p.className="card table-card";p.style.marginTop="16px";p.innerHTML='<div class="card-head padded-head"><div><div class="card-kicker">FAST audit trail</div><div class="card-title">Security Operations Activity</div></div><button class="btn btn-small" id="refreshAudit">Refresh</button></div><div class="table-scroll"><table id="auditTable"><thead><tr><th>Time</th><th>Actor</th><th>Role</th><th>Action</th><th>Object</th></tr></thead><tbody id="auditBody"></tbody></table><div class="platform-empty" id="auditEmpty">No audit events yet.</div></div>';view.appendChild(p);$("refreshAudit").onclick=loadAudit;
   }
 
   async function loadAudit(){
@@ -270,11 +273,10 @@
 
   function hookExistingNav(){
     document.querySelector('[data-view="overview"]')?.addEventListener("click",()=>setTimeout(loadRiskAssets,0));
-    document.querySelector('[data-view="architecture"]')?.addEventListener("click",()=>setTimeout(()=>meta("Platform","FAST Architecture","Unified architecture and current integrations."),0));
-    document.querySelector('[data-view="system"]')?.addEventListener("click",()=>setTimeout(loadAudit,0));
+    document.querySelector('[data-view="architecture"]')?.addEventListener("click",()=>setTimeout(()=>{meta("Platform","FAST Architecture","Platform design, detection flow and operational health.");loadAudit();},0));
   }
 
-  installNav(); installIncidents(); installValidation(); enhanceDetections(); enhanceArchitecture(); installAudit(); hookExistingNav();
+  installNav(); installIncidents(); enhanceDetections(); enhanceArchitecture(); installValidation(); moveSystemHealthToArchitecture(); installAudit(); hookExistingNav();
   initAuth(); loadRiskAssets();
-  setInterval(()=>{if($("view-incidents")?.classList.contains("active")&&!selectedCaseId)loadIncidents();if($("view-validation")?.classList.contains("active"))loadValidation();},12000);
+  setInterval(()=>{if($("view-incidents")?.classList.contains("active")&&!selectedCaseId)loadIncidents();},12000);
 })();
