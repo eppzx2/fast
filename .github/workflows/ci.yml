@@ -2,7 +2,7 @@ name: FAST CI
 
 on:
   push:
-    branches: [main, feature/fast-ui]
+    branches: [main, feature/fast-ui, test]
   pull_request:
 
 permissions:
@@ -38,6 +38,7 @@ jobs:
         run: |
           bash -n deploy.sh
           bash -n bin/fast
+          bash -n bin/fast-cleanup
           bash -n bin/fast-share
           bash -n bin/fast-cli
           bash -n refresh_iocs.sh
