@@ -494,3 +494,7 @@ fi
 
 echo "To refresh IOCs: ./refresh_iocs.sh"
 echo "To stop the stack: cd wazuh-docker/single-node && docker compose down"
+
+echo ""
+echo "🧹 Cleaning stale Docker build artifacts (persistent data is preserved)..." 
+bash "$PROJECT_ROOT/bin/fast-cleanup"
