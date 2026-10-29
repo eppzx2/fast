@@ -42,6 +42,7 @@
 
   function installNav(){
     document.querySelector('.nav-btn[data-view="simulation"]')?.remove();
+    document.querySelector('.nav-btn[data-view="detections"]')?.remove();
     $("view-simulation")?.remove();
     const nav=document.querySelector(".nav"); if(!nav) return;
     if(!nav.querySelector('[data-view="incidents"]')) nav.insertBefore(navButton("incidents","◆","Incidents"),nav.querySelector('[data-view="detections"]'));
@@ -66,9 +67,7 @@
   }
 
   function renderIdentity(){
-    const actions=document.querySelector(".top-actions"); if(!actions||$("fastIdentity")) return;
-    const chip=document.createElement("div"); chip.id="fastIdentity"; chip.className="identity-chip"+(auth.enabled?"":" local");
-    chip.innerHTML=`<span class="identity-dot"></span>${html(auth.username)} · ${html(auth.role)}`; actions.prepend(chip);
+    const actions=document.querySelector(".top-actions"); if(!actions) return;
     const sync=$("syncIntelligenceBtn"); if(sync&&auth.enabled&&!can("admin")){ sync.disabled=true; sync.title="Admin role required"; }
     if(auth.enabled){ const b=document.createElement("button"); b.className="btn btn-ghost"; b.textContent="Sign out"; b.onclick=async()=>{try{await api("/logout",{method:"POST"});}finally{location.assign("/login");}}; actions.appendChild(b); }
   }
@@ -239,8 +238,18 @@
 
   function enhanceArchitecture(){
     const view=$("view-architecture");if(!view)return;
-    view.innerHTML=`<div class="section-head"><div><h2>FAST Platform Architecture</h2><p>Wazuh is the active SIEM core, TALON is the threat-intelligence module, and future integrations remain clearly marked.</p></div><button class="btn" id="refreshRiskAssets">Refresh Assets</button></div><div class="fast-platform-shell"><div class="platform-core-head"><div><div class="platform-core-title">FAST · Unified Security Platform</div><div class="platform-core-sub">Security telemetry, analyst workflow, intelligence and integrations in one operational layer.</div></div><span class="platform-state">Platform Active</span></div><div class="module-grid"><div class="module-card active"><div class="module-label">Core</div><div class="module-name">SIEM / Wazuh</div><div class="module-desc">Agents, telemetry, detection, indexing and Threat Hunting.</div><span class="module-state">Active</span></div><div class="module-card active"><div class="module-label">FAST module</div><div class="module-name">TALON</div><div class="module-desc">OSINT collection, normalization, scoring and IOC integration.</div><span class="module-state">Active</span></div>${["SOAR","PAM","EPM","DLP"].map(x=>`<div class="module-card future"><div class="module-label">Future integration</div><div class="module-name">${x}</div><div class="module-desc">Planned integration; no synthetic functionality is exposed.</div><span class="module-state">Coming Soon</span></div>`).join("")}</div></div><div class="card table-card" style="margin-top:16px"><div class="card-head padded-head"><div><div class="card-kicker">Wazuh + FAST risk engine</div><div class="card-title">Asset Catalog</div></div><div class="asset-summary"><span class="summary-chip"><strong id="opsAssetTotal">0</strong> assets</span><span class="summary-chip"><strong id="opsAssetHigh">0</strong> high risk</span><span class="live-badge" id="opsAssetBadge">LIVE</span></div></div><div class="table-scroll"><table id="opsAssetTable"><thead><tr><th>ID</th><th>Hostname</th><th>OS</th><th>IP</th><th>Status</th><th>Risk</th><th>Alerts 24h</th><th>Last Keepalive</th></tr></thead><tbody id="opsAssetBody"></tbody></table><div class="platform-empty" id="opsAssetEmpty">No assets returned.</div></div></div>`;
-    $("refreshRiskAssets").onclick=loadRiskAssets;
+    view.innerHTML=`<div class="section-head"><div><h2>FAST Platform Architecture</h2><p>Wazuh is the active SIEM core, TALON is the threat-intelligence module, and future integrations remain clearly marked.</p></div></div><div class="fast-platform-shell"><div class="platform-core-head"><div><div class="platform-core-title">FAST · Unified Security Platform</div><div class="platform-core-sub">Security telemetry, analyst workflow, intelligence and integrations in one operational layer.</div></div><span class="platform-state">Platform Active</span></div><div class="module-grid"><div class="module-card active"><div class="module-label">Core</div><div class="module-name">SIEM / Wazuh</div><div class="module-desc">Agents, telemetry, detection, indexing and Threat Hunting.</div><span class="module-state">Active</span></div><div class="module-card active"><div class="module-label">FAST module</div><div class="module-name">TALON</div><div class="module-desc">OSINT collection, normalization, scoring and IOC integration.</div><span class="module-state">Active</span></div>${["SOAR","PAM","EPM","DLP"].map(x=>`<div class="module-card future"><div class="module-label">Future integration</div><div class="module-name">${x}</div><div class="module-desc">Planned integration; no synthetic functionality is exposed.</div><span class="module-state">Coming Soon</span></div>`).join("")}</div></div><div class="card table-card" style="margin-top:16px"><div class="card-head padded-head"><div><div class="card-kicker">Wazuh + FAST risk engine</div><div class="card-title">Asset Catalog</div></div><div class="asset-summary"><span class="summary-chip"><strong id="opsAssetTotal">0</strong> assets</span><span class="summary-chip"><strong id="opsAssetHigh">0</strong> high risk</span><span class="live-badge" id="opsAssetBadge">LIVE</span></div></div><div class="table-scroll"><table id="opsAssetTable"><thead><tr><th>ID</th><th>Hostname</th><th>OS</th><th>IP</th><th>Status</th><th>Risk</th><th>Alerts 24h</th><th>Last Keepalive</th></tr></thead><tbody id="opsAssetBody"></tbody></table><div class="platform-empty" id="opsAssetEmpty">No assets returned.</div></div></div>`;
+    const catalogTitle=[...view.querySelectorAll(".card-title")].find(el=>el.textContent.trim()==="Asset Catalog");
+    const catalog=catalogTitle?.closest(".card.table-card");
+    const overview=$("view-overview");
+    if(catalog&&overview){
+      catalog.classList.add("overview-asset-catalog");
+      catalog.style.marginTop="20px";
+      const refresh=$("refreshRiskAssets");
+      const summary=catalog.querySelector(".asset-summary");
+      if(refresh&&summary)summary.appendChild(refresh);
+      overview.appendChild(catalog);
+    }
   }
 
   async function loadRiskAssets(){
@@ -260,12 +269,12 @@
   }
 
   function hookExistingNav(){
-    document.querySelector('[data-view="detections"]')?.addEventListener("click",()=>setTimeout(()=>{meta("Detection engineering","FAST Detections","Live rule health and coverage from Wazuh.");loadDetectionHealth();},0));
-    document.querySelector('[data-view="architecture"]')?.addEventListener("click",()=>setTimeout(()=>{meta("Platform","FAST Architecture","Unified architecture, live assets and transparent risk scoring.");loadRiskAssets();},0));
+    document.querySelector('[data-view="overview"]')?.addEventListener("click",()=>setTimeout(loadRiskAssets,0));
+    document.querySelector('[data-view="architecture"]')?.addEventListener("click",()=>setTimeout(()=>meta("Platform","FAST Architecture","Unified architecture and current integrations."),0));
     document.querySelector('[data-view="system"]')?.addEventListener("click",()=>setTimeout(loadAudit,0));
   }
 
   installNav(); installIncidents(); installValidation(); enhanceDetections(); enhanceArchitecture(); installAudit(); hookExistingNav();
-  initAuth();
+  initAuth(); loadRiskAssets();
   setInterval(()=>{if($("view-incidents")?.classList.contains("active")&&!selectedCaseId)loadIncidents();if($("view-validation")?.classList.contains("active"))loadValidation();},12000);
 })();
