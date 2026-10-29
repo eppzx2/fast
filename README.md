@@ -7,7 +7,7 @@
 
 FAST's main goal is to bring up a complete cyber-monitoring/SOC environment with one command in about five minutes. On a prepared Linux host with Docker Engine and Compose, `./bin/fast up` starts Wazuh SIEM, threat-intelligence collection, FAST detections, and the analyst UI together. Actual time depends on host and network speed, especially during first-time image pulls.
 
- > **One command. About five minutes to a working SOC environment.** On a prepared Linux host with Docker Engine and the Docker Compose plugin, clone the `test` branch and run `./bin/fast up`. First-time image downloads and host/network speed affect the actual duration.
+> **One command. About five minutes to a working SOC environment.** On a prepared Linux host with Docker Engine and the Docker Compose plugin, clone the `test` branch and run `./bin/fast up`. First-time image downloads and host/network speed affect the actual duration.
 
 ## At a glance
 
