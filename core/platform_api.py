@@ -266,8 +266,11 @@ def register_platform_routes(app) -> None:
         search = request.args.get("q", "").strip()[:120]
         try:
             client = get_wazuh_client()
+            # The FAST incident workflow is intentionally limited to its
+            # three agreed detections. Routine Wazuh operational and audit
+            # events remain in Wazuh but are not SOC incidents in this UI.
             alerts = client.recent_alerts(
-                rule_ids=None,
+                rule_ids=FAST_RULE_IDS,
                 limit=limit,
                 minutes=minutes,
                 min_level=min_level,
@@ -278,23 +281,14 @@ def register_platform_routes(app) -> None:
             )
             enriched_alerts = [enrich_alert(item) for item in alerts.get("items", [])]
             cases = build_incident_cases(enriched_alerts)
-            # Preserve the existing correlation scope and completeness while
-            # showing the broader all-Wazuh alert list above.
-            fast_alerts = client.recent_alerts(
-                rule_ids=FAST_RULE_IDS,
-                limit=min(limit, 500),
-                minutes=minutes,
-            )
-            canonical_alerts = [
-                enrich_alert(item) for item in fast_alerts.get("items", [])
-            ]
-            correlations = correlate_alerts(canonical_alerts, window_minutes=60)
+            correlations = correlate_alerts(enriched_alerts, window_minutes=60)
             return jsonify(
                 {
                     "status": "ok",
                     "source": "wazuh-indexer+fast-analyst-state",
                     "items": cases,
                     "total": alerts.get("total", len(cases)),
+                    "rule_ids": list(FAST_RULE_IDS),
                     "sampled": bool(alerts.get("sampled")),
                     "correlations": correlations,
                     "filters": {
