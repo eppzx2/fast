@@ -74,18 +74,18 @@
   function installIncidents(){
     if($("view-incidents")) return; const main=document.querySelector("main.main"); if(!main) return;
     const s=document.createElement("section"); s.className="view"; s.id="view-incidents";
-    s.innerHTML=`<div class="section-head"><div><h2>Incident Workflow</h2><p>All indexed Wazuh alerts, including FAST custom detections, with analyst workflow state.</p></div><button class="btn" id="refreshIncidents">Refresh</button></div>
+    s.innerHTML=`<div class="section-head"><div><h2>Incident Workflow</h2><p>Only FAST’s three agreed detections are shown here: SSH brute force, port scan and LOLBin masquerading.</p></div><button class="btn" id="refreshIncidents">Refresh</button></div>
     <div class="ops-metrics"><div class="card ops-metric"><span>Open</span><strong id="incOpen">0</strong></div><div class="card ops-metric"><span>Critical / High</span><strong id="incHigh">0</strong></div><div class="card ops-metric"><span>FAST Correlations</span><strong id="incCorr">0</strong></div></div>
     <div class="incident-filter-bar">
       <label class="incident-filter">Time range<select class="control" id="incMinutes"><option value="60">Last hour</option><option value="1440" selected>Last 24 hours</option><option value="10080">Last 7 days</option></select></label>
       <label class="incident-filter">Minimum level<select class="control" id="incMinLevel"><option value="0">All levels</option><option value="7">7+</option><option value="10">10+</option><option value="12">12+</option></select></label>
       <label class="incident-filter">Agent ID<input class="control" id="incAgentId" maxlength="64" placeholder="Any agent"></label>
-      <label class="incident-filter">Rule ID<input class="control" id="incRuleId" maxlength="32" placeholder="Any rule"></label>
+      <label class="incident-filter">Detection<select class="control" id="incRuleId"><option value="">All three detections</option><option value="100200">SSH brute force</option><option value="100211">Port scan</option><option value="100221">LOLBin masquerading</option></select></label>
       <label class="incident-filter">Rule group<input class="control" id="incGroup" maxlength="64" placeholder="Any group"></label>
       <label class="incident-filter incident-search">Search<input class="control" id="incSearch" type="search" maxlength="120" placeholder="Description, IP, host…"></label>
       <button class="btn btn-primary" id="applyIncFilters">Apply filters</button>
     </div>
-    <div class="card table-card incident-card"><div class="card-head padded-head"><div><div class="card-kicker">All indexed Wazuh alerts</div><div class="card-title">Security Incidents</div></div><span class="live-badge" id="incBadge">LIVE</span></div><div class="table-scroll"><table id="incidentTable"><thead><tr><th>Time</th><th>Detection / Rule</th><th>Agent</th><th>Source</th><th>Priority</th><th>Status</th><th>Assignee</th><th></th></tr></thead><tbody id="incBody"></tbody></table><div class="platform-empty" id="incEmpty">No Wazuh alerts match the selected filters.</div></div></div>
+    <div class="card table-card incident-card"><div class="card-head padded-head"><div><div class="card-kicker">FAST detections only</div><div class="card-title">Security Incidents</div></div><span class="live-badge" id="incBadge">LIVE</span></div><div class="table-scroll"><table id="incidentTable"><thead><tr><th>Time</th><th>Detection / Rule</th><th>Agent</th><th>Source</th><th>Priority</th><th>Status</th><th>Assignee</th><th></th></tr></thead><tbody id="incBody"></tbody></table><div class="platform-empty" id="incEmpty">No FAST detections match the selected filters.</div></div></div>
     <div class="card" style="margin-top:16px"><div class="card-head"><div><div class="card-kicker">FAST detection correlation</div><div class="card-title">Related Activity</div></div><span class="live-badge">FAST RULES</span></div><div id="corrList" class="correlation-list"></div></div>`;
     main.insertBefore(s,$("view-detections"));
     const applyFilters=()=>{incidentFilters={minutes:Number($("incMinutes").value)||1440,minLevel:Number($("incMinLevel").value)||0,agentId:$("incAgentId").value.trim(),ruleId:$("incRuleId").value.trim(),group:$("incGroup").value.trim(),q:$("incSearch").value.trim()};selectedCaseId="";loadIncidents();};
@@ -224,7 +224,7 @@
     if(incidentFilters.ruleId)params.set("rule_id",incidentFilters.ruleId);
     if(incidentFilters.group)params.set("group",incidentFilters.group);
     if(incidentFilters.q)params.set("q",incidentFilters.q);
-    try{const data=await api(`/api/security/incidents?${params.toString()}`,{cache:"no-store"});renderIncidents(data.items||[]);renderCorrelations(data.correlations||[]);$("incBadge").textContent=data.sampled?"WAZUH LIVE · SAMPLED":"WAZUH LIVE";$("incBadge").className="live-badge ok";}
+    try{const data=await api(`/api/security/incidents?${params.toString()}`,{cache:"no-store"});renderIncidents(data.items||[]);renderCorrelations(data.correlations||[]);$("incBadge").textContent=data.sampled?"FAST LIVE · SAMPLED":"FAST LIVE";$("incBadge").className="live-badge ok";}
     catch(e){renderIncidents([]);renderCorrelations([]);$("incEmpty").style.display="block";$("incEmpty").textContent=`Incidents unavailable: ${e.message}`;$("incBadge").textContent="UNAVAILABLE";$("incBadge").className="live-badge bad";}
   }
   function installValidation(){
