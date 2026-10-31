@@ -63,11 +63,9 @@ print(((obj.get("Self") or {}).get("DNSName") or "").rstrip("."))
 }
 
 check_backends() {
-    info "Checking local FAST UI..."
     curl -fsS --max-time 5 "http://127.0.0.1:${UI_PORT}/api/health" >/dev/null \
         || fail "FAST UI is not healthy on 127.0.0.1:${UI_PORT}. Run './bin/fast up' first."
 
-    info "Checking local Wazuh Dashboard..."
     curl -kfsS --max-time 8 "https://127.0.0.1:${WAZUH_PORT}/" >/dev/null \
         || fail "Wazuh Dashboard is not reachable on 127.0.0.1:${WAZUH_PORT}. Run './bin/fast up' first."
 }
@@ -80,15 +78,12 @@ share_on() {
     dns="$(dns_name)"
     [ -n "$dns" ] || fail "Could not determine this node's Tailscale DNS name."
 
-    info "Publishing FAST UI with Tailscale Funnel on HTTPS 443..."
-    ts_write funnel --bg --yes --https=443 "http://127.0.0.1:${UI_PORT}" \
+    ts_write funnel --bg --yes --https=443 "http://127.0.0.1:${UI_PORT}" >/dev/null 2>&1 \
         || fail "Could not enable Funnel. Check MagicDNS/HTTPS/Funnel permissions in the tailnet."
 
-    info "Publishing Wazuh Dashboard inside the tailnet on HTTPS 8443..."
-    ts_write serve --bg --yes --https=8443 "https+insecure://127.0.0.1:${WAZUH_PORT}" \
+    ts_write serve --bg --yes --https=8443 "https+insecure://127.0.0.1:${WAZUH_PORT}" >/dev/null 2>&1 \
         || fail "Could not enable tailnet-only Wazuh Serve endpoint."
 
-    printf '\n'
     printf '============================================================\n'
     printf ' FAST ACCESS READY\n'
     printf '============================================================\n'
@@ -97,9 +92,6 @@ share_on() {
     printf ' Local FAST UI:     http://127.0.0.1:%s\n' "$UI_PORT"
     printf ' Local Wazuh:       https://127.0.0.1:%s\n' "$WAZUH_PORT"
     printf '============================================================\n'
-    printf '\n'
-    printf 'The FAST UI is public through Funnel. The Wazuh admin interface is\n'
-    printf 'intentionally private and requires a device connected to your tailnet.\n'
 }
 
 share_off() {
